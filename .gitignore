@@ -1,6 +1,8 @@
 
 data/sample_submission.csv
-data/
+data/orders.csv
+data/order_products__train.csv
+data/order_products__prior.csv
 instacart.code-workspace
 project_desc/project_description-v1.pdf
 project_desc/project_description.pages

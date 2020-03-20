@@ -16,9 +16,9 @@ def loadData():
     depdf = SPARK.read.csv('data/departments.csv',header=True, inferSchema=True)
     aislesdf = SPARK.read.csv('data/aisles.csv',header=True,inferSchema=True)
     
-    print("\nThe are total {} products in the dataset".format(productsdf.count()))
-    print("\nProducts are categorised into {} departments".format(depdf.count()))
-    print("\nProducts are categorised into {} aisles".format(aislesdf.count()))
+    print(" The are total {} products in the dataset".format(productsdf.count()))
+    print(" Products are categorised into {} departments".format(depdf.count()))
+    print(" Products are categorised into {} aisles".format(aislesdf.count()))
     merged_productsdf = mergeDataset(productsdf, aislesdf, depdf)
     return ordersdf, merged_productsdf
 
@@ -32,7 +32,7 @@ def mergeDataset(productsdf, aislesdf, depdf):
         depdf {[type]} -- [description]
     
     Returns:
-        [dataframe] -- [merged dataframe]
+        [type] -- [description]
     """ 
     merged_productsdf = productsdf.join(aislesdf, on='aisle_id')
     merged_productsdf = merged_productsdf.join(depdf,on='department_id')
