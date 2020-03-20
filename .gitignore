@@ -1,0 +1,12 @@
+
+data/sample_submission.csv
+data/
+instacart.code-workspace
+project_desc/project_description-v1.pdf
+project_desc/project_description.pages
+references/.DS_Store
+references/Data Description.docx
+.DS_Store
+data/__pycache__/data.cpython-36.pyc
+__pycache__/data.cpython-36.pyc
+eda-backup.py
