@@ -1,4 +1,8 @@
 
+instacart-env/
+spark-project-larkin-sm-demo-gaurang/
+target/
+project/
 data/sample_submission.csv
 data/orders.csv
 data/order_products__train.csv
@@ -12,3 +16,5 @@ references/Data Description.docx
 data/__pycache__/data.cpython-36.pyc
 __pycache__/data.cpython-36.pyc
 eda-backup.py
+*.zip
+.vscode
