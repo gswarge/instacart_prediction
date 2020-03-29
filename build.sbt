@@ -7,9 +7,9 @@ scalaVersion := "2.12.10"
 val sparkVersion = "3.0.0-preview2"
 
 libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
+  "org.apache.spark" %% "spark-sql" % sparkVersion % "compile",
+  "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "io.spray" %% "spray-json" % "1.3.3",
   "com.typesafe" % "config" % "1.2.1",
   "org.apache.logging.log4j" %% "log4j-api-scala" % "11.0"

@@ -4,7 +4,13 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object DataProcessing {
     println("G")
-    val spark = SparkSession.builder().getOrCreate()
+    val spark = SparkSession
+        .builder()
+        .appName("Instacart Prediction Project")
+        .config("spark.master", "local[*]")
+        .getOrCreate()
+    
+    spark.sparkContext.setLogLevel("ERROR")
 
     def getParquet(parquetPath: String): DataFrame = {
         val spark = SparkSession.builder().getOrCreate()
@@ -15,6 +21,7 @@ object DataProcessing {
     def readCSV(csvPath: String): DataFrame = {
         println("read csv!")
         val csvPath = "orders.csv"
+        val spark = SparkSession.builder().getOrCreate()
         val csvDf = spark.read.format("csv").option(
             "header", "true").option(
             "inferSchema", "true").load(
@@ -25,8 +32,9 @@ object DataProcessing {
     }
 
     def loadData () = {
+        
         println ("Loading Data....")
-        val csvPath = List("orders.csv","aisles.csv","departments.csv","products.csv","order_products_prior.csv")
+        val csvPath = List("data/orders.csv","data/aisles.csv","data/departments.csv","data/products.csv","data/order_products_prior.csv")
 
         val ordersDF = spark.read.format("csv").option(
                         "header", "true").option("inferSchema", "true").load(
@@ -48,7 +56,6 @@ object DataProcessing {
                         "header", "true").option("inferSchema", "true").load(
                             csvPath(4))
         println("Loaded "+ csvPath(4))
-            
     }
 
     // "⁨/Users/eric/Dropbox/SharpestMinds/Gaurang/Mentorship/instacart_prediction/data/order_products__prior.csv"

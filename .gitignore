@@ -1,12 +1,15 @@
 
+.metals
+.bloop
 instacart-env/
 spark-project-larkin-sm-demo-gaurang/
 target/
 project/
+data/
 data/sample_submission.csv
 data/orders.csv
-data/order_products__train.csv
-data/order_products__prior.csv
+data/order_products_train.csv
+data/order_products_prior.csv
 instacart.code-workspace
 project_desc/project_description-v1.pdf
 project_desc/project_description.pages
