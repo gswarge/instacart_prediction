@@ -11,11 +11,12 @@ object instacart_main extends Serializable{
 
   def main(args: Array[String]): Unit = {
 
-    println("testing main")
-    var dir = "data/"
-    val dataFiles = DataProcessing.getListOfFiles(dir)
-    println("Files:\n" + dataFiles)
-    DataProcessing.loadData()
+    println("Initialising main...")
+    //var dir = "data/"
+    //val dataFiles = DataProcessing.getListOfFiles(dir)
+    //println("Files:\n" + dataFiles)
+    DataProcessing.processData()
+    DataProcessing.eda()
     DataProcessing.spark.stop()
   }
 }
