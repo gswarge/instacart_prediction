@@ -4,89 +4,128 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import shapeless.Data
 import spire.std.`package`.string
 import java.io.File
+import spire.syntax.`package`.order
+
 
 object DataProcessing {
-    println("G")
+    println("In DataProcessing")
+    
     val spark = SparkSession
         .builder()
         .appName("Instacart Prediction Project")
         .config("spark.master", "local[*]")
         .getOrCreate()
-    
-    spark.sparkContext.setLogLevel("ERROR")
-    //Loading Data in Main object, so that i have access to dataframes in all functions
-    println ("\n******Loading Data******\n")
-    val csvPath = List("data/orders.csv","data/aisles.csv","data/departments.csv","data/products.csv","data/order_products_prior.csv","data/order_products_train.csv")
+    import spark.implicits._
+    spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
-    val ordersDF = spark.read.format("csv").option(
-                    "header", "true").option("inferSchema", "true").load(
-                        csvPath(0)).cache()
-    println("Loaded "+ csvPath(0))
-    ordersDF.printSchema()
+    def loadData(){
+        println ("\n******Loading Data******\n")
+        val csvPath = List("data/orders.csv","data/aisles.csv","data/departments.csv","data/products.csv","data/order_products_prior.csv","data/order_products_train.csv")
 
-    val aislesDF = spark.read.format("csv").option(
-                    "header", "true").option("inferSchema", "true").load(
-                        csvPath(1))
-    println("Loaded "+ csvPath(1))
-    //aislesDF.printSchema()
 
-    val departmentsDF = spark.read.format("csv").option(
-                    "header", "true").option("inferSchema", "true").load(
-                        csvPath(2))
-    println("Loaded "+ csvPath(2))
-    //departmentsDF.printSchema()
+        val aislesDF = spark.read.format("csv").option(
+                        "header", "true").option("inferSchema", "true").load(
+                            csvPath(1))
+        println("Loaded "+ csvPath(1))
+        //aislesDF.printSchema()
 
-    val productsDF = spark.read.format("csv").option(
-                    "header", "true").option("inferSchema", "true").load(
-                        csvPath(3))
-    println("Loaded "+ csvPath(3))
-    //productsDF.printSchema()
+        val departmentsDF = spark.read.format("csv").option(
+                        "header", "true").option("inferSchema", "true").load(
+                            csvPath(2))
+        println("Loaded "+ csvPath(2))
+        //departmentsDF.printSchema()
 
-    var oppDF = spark.read.format("csv").option(
-                    "header", "true").option("inferSchema", "true").load(
-                        csvPath(4))
-    println("Loaded "+ csvPath(4))
-    oppDF.printSchema()
+        val productsDF = spark.read.format("csv").option(
+                        "header", "true").option("inferSchema", "true").load(
+                            csvPath(3))
+        println("Loaded "+ csvPath(3))
+        //productsDF.printSchema()
+        
+        val ordersDF = spark.read.format("csv").option(
+                        "header", "true").option("inferSchema", "true").load(
+                            csvPath(0)).cache()
+        println("Loaded "+ csvPath(0))
+        ordersDF.printSchema()
+        ordersDF.show(5)
 
-    var optDF = spark.read.format("csv").option(
-                    "header", "true").option("inferSchema", "true").load(
-                        csvPath(5))
-    println("Loaded "+ csvPath(5))
-    optDF.printSchema()    
-    var productDfFinal = mergeDf(productsDF,aislesDF, "aisle_id")
-
-    def processData () = {
-        println("combine products with departments and aisles")    
-        println("first merge: products and aisles tables...")
-        productDfFinal.printSchema()
-        productDfFinal = mergeDf(productDfFinal,departmentsDF,"department_id")
+        
+        val oppDF = spark.read.format("csv").option(
+                        "header", "true").option("inferSchema", "true").load(
+                            csvPath(4))
+        println("Loaded "+ csvPath(4))
+        oppDF.printSchema()
+    /* //Load orderProducts train 
+        val optDF = spark.read.format("csv").option(
+                        "header", "true").option("inferSchema", "true").load(
+                            csvPath(5))
+        println("Loaded "+ csvPath(5))
+        optDF.printSchema()    
+        */
+        // Merging Aisles and Products
+        val productDf1 = mergeDf(productsDF,aislesDF, "aisle_id")
+        productDf1.printSchema()
         println("second merge products and departments...\nProducts DF final")
+        val productDfFinal = mergeDf(productDf1,departmentsDF,"department_id")
         productDfFinal.printSchema()
-        productDfFinal.show()
+        productDfFinal.show(5)
+
+        println("Merging order_products_prior with orders df")
+        //orders prior table contains the details of the orders prior to that users most recent order, where as orders table consist details of only the orders without product ids or product information
+        val orderProductsDF = mergeDf(oppDF,ordersDF.select("user_id","order_id"),"order_id")
+        orderProductsDF.printSchema()
+        orderProductsDF.show()
+
+    /*  // Merging train and orders database
         println("Merging order_products_train with orders df")
         optDF = mergeDf(optDF,ordersDF,"order_id")
         optDF.printSchema()
         optDF.show()
-        println("Merging order_products_prior with orders df")
-        //orders prior table contains the orders prior to that users most recent order(present in orders table)
-        oppDF = mergeDf(oppDF,ordersDF.select("user_id","order_id"),"order_id")
-        oppDF.printSchema()
-        oppDF.show()
-    }
+    */ 
+
+        createItemMatrixDF(productDfFinal,orderProductsDF)
+        
+}
 
     def mergeDf(df1: DataFrame,df2: DataFrame, key :String): DataFrame = {
-        println("Merging Data... ")
-    return df1.join(df2, df1(key) === df2(key), joinType="inner")
+        //Merge dataframes and remove duplicate columns post merging
+        //Inner join is the default join in Spark, this joins two datasets on key columns and where keys don’t match the rows get dropped from both datasets.
+        val colNames = df2.columns.toSeq
+        val finalDF = df1.alias("df1").join(df2.alias("df2"), key).drop(df2(key))
+        println(finalDF.columns.toSeq)
+    return finalDF
     }
-    /*
-        group by products in order id and count will give top selling products
-        group by user id and count(order_id) will give users with most orders and users with their order count
-        select only product orders from order_products_prior for those users whose data is in order_products_train
-
+   
+    /* 
+        Need to merge orders.csv, opp.csv first, then based on the product_ids in alcohol df, pickup the rows from the merged dataframe
     */
+    def createItemMatrixDF(productDfFinal : DataFrame, orderProductsDF: DataFrame) ={
+        //groupby Departments
+        productDfFinal.groupBy("department_id","department").count().show(21)
+        /*
+            selecting only alcohol department, It has about 1000 products, also, to start with only one dept for my Item-item matrix, deptid=5
+        */
+        val alcoholDF = productDfFinal.filter(productDfFinal("department_id")===5)
+        //alcoholDF.show(15)
+        /*
+            Merging Orders information with products present only in Alcohol Department, hence effectively dropping all other orders not part of alcohol department, as default join method, is inner join 
+        */
+        val filteredOrders = mergeDf(orderProductsDF,alcoholDF,"product_id")
+        filteredOrders.printSchema()
+        filteredOrders.show(10)
+        writeToCSV(filteredOrders,"data/filteredOrders.csv")
+        writeToParquet(filteredOrders,"data/filteredOrderes.parquet")
+
+    }
+
     def eda() = {
-        productDfFinal.createOrReplaceGlobalTempView("products")
-        oppDF.createOrReplaceGlobalTempView("orders_prior")
+         /*
+            To do:
+            group by products in order id and count will give top selling products
+            group by user id and count(order_id) will give users with most orders and users with their order count
+            select only product orders from order_products_prior for those users whose data is in order_products_train
+        */
+        //productDfFinal.createOrReplaceGlobalTempView("products")
+        //oppDF.createOrReplaceGlobalTempView("orders_prior")
         var output = spark.sql("'select COUNT(global_temp.order_id) from global_temp.orders_prior GROUP BY global_temp.product_id'")
         output.show()
 
@@ -96,14 +135,27 @@ object DataProcessing {
 
 
     def writeToCSV(df: DataFrame, fileName: String): Unit = {
+        /*
+            Write to a CSV File
+        */
+
         val spark = SparkSession.builder().getOrCreate()
         println("writing dataframe to csv!")
         df.write.format("com.databricks.spark.csv").option("header", "true").save(fileName)
     }
-    
+
+    def writeToParquet(df: DataFrame, 
+        /*
+            Write to Parquet File
+        */
+        fileName:String): Unit = {
+        println("Writing Parquet File")
+        df.write.parquet(fileName)
+    }
+
     def getParquet(parquetPath: String): DataFrame = {
         val spark = SparkSession.builder().getOrCreate()
-        println("read parquet!")
+        println("reading parquet file!")
         spark.read.parquet(parquetPath)
     }
 
@@ -119,6 +171,9 @@ object DataProcessing {
         csvDf
     }
     def getListOfFiles(dir: String):List[File] = {
+        /*
+            Function to get the list of csv files in the given directory
+        */
         val d = new File(dir)
         val okFileExtensions = List("csv")
         d.listFiles.filter(_.isFile).toList.filter { 

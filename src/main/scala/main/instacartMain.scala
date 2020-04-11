@@ -3,20 +3,20 @@ package main
 import etl.DataProcessing
 import org.apache.log4j.Logger
 
-class instacart_main extends Serializable {
+class instacartMain extends Serializable {
   @transient lazy val logger: Logger = Logger.getLogger(getClass.getName)
 }
 
-object instacart_main extends Serializable{
+object instacartMain extends Serializable{
 
   def main(args: Array[String]): Unit = {
 
     println("Initialising main...")
     //var dir = "data/"
     //val dataFiles = DataProcessing.getListOfFiles(dir)
-    //println("Files:\n" + dataFiles)
-    DataProcessing.processData()
-    DataProcessing.eda()
+    // Loading Data, Merging Data and Filtering it to a smaller dataframe for ItemMatrix Generation and writes to parquet, Run once and then run ItemMatrix
+    //DataProcessing.processData()
+    itemMatrixFunc.createItemMatrixDF()
     DataProcessing.spark.stop()
   }
 }

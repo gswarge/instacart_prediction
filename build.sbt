@@ -18,6 +18,6 @@ libraryDependencies ++= Seq(
 
 resolvers += Classpaths.typesafeReleases
 
-mainClass in(Compile, run) := Some("main.instacart_main")
-mainClass in(Compile, packageBin) := Some("main.instacart_main")
+mainClass in(Compile, run) := Some("main.instacartMain")
+mainClass in(Compile, packageBin) := Some("main.instacartMain")
 

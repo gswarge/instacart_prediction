@@ -1,6 +1,8 @@
 
 .metals
 .bloop
+filteredOrders.csv
+filteredOrderes.parquet
 instacart-env/
 spark-project-larkin-sm-demo-gaurang/
 target/
