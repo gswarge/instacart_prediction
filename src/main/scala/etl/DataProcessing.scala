@@ -105,7 +105,7 @@ object DataProcessing {
         /*
             selecting only alcohol department, It has about 1000 products, also, to start with only one dept for my Item-item matrix, deptid=5
         */
-        val alcoholDF = productDfFinal.filter(productDfFinal("department_id")=== department_id || productDfFinal("department_id")===7)
+        val alcoholDF = productDfFinal.filter(productDfFinal("department_id")=== department_id)
         
         /*
             Merging Orders information with products present only in Alcohol & Beverages Department, hence effectively dropping all other orders not part of alcohol department, as default join method, is inner join 

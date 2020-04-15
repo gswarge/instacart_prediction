@@ -38,8 +38,8 @@ object ItemMatrixFunc {
         val userItemDf = filteredDF.groupBy("user_id").pivot("product_id").count()
         println("UserItemMatrix rowLength: "+ userItemDf.count()+" | UserItemMatrix columnLength: " + userItemDf.columns.size)
     /*
-            (2843825,13)
-            UserItemMatrix rowLength: 174387 | UserItemMatrix columnLength: 5418
+            (153696,13)
+            UserItemMatrix rowLength: 15798 | UserItemMatrix columnLength: 1055
     */
     /*
      
@@ -54,8 +54,10 @@ object ItemMatrixFunc {
         
         val newfilteredDF=filteredDF.withColumn("product_id_2",filteredDF("product_id"))
         newfilteredDF.select("user_id","product_id","order_id","product_id_2").show(10)       
-        val itemItemMatrix = newfilteredDF.select("product_id","product_id_2").stat.crosstab("product_id", "product_id_2")
+        val itemItemMatrix = newfilteredDF.select("user_id","order_id","product_id","product_id_2").stat.crosstab("product_id", "product_id_2")
+        //val userItemMatrix = filteredDF.select("user_id","order_id","product_id").stat.crosstab("product_id", "user_id")
         DataProcessing.writeToCSV(itemItemMatrix,"data/itemItemDf.csv")
+        //DataProcessing.writeToCSV(itemItemMatrix,"data/userItemDf.csv")
 
     }
 
