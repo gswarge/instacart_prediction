@@ -12,11 +12,12 @@ object instacartMain extends Serializable{
   def main(args: Array[String]): Unit = {
 
     println("Initialising main...")
-    //var dir = "data/"
-    //val dataFiles = DataProcessing.getListOfFiles(dir)
-    // Loading Data, Merging Data and Filtering it to a smaller dataframe for ItemMatrix Generation and writes to parquet, Run once and then run ItemMatrix
-    //DataProcessing.processData()
-    itemMatrixFunc.createItemMatrixDF()
+  
+/*
+    Run loadandProcessData() only once, it writes out a processed parquet file to be used for createItemMatrixDF()
+*/
+    //DataProcessing.loadandProcessData()
+    ItemMatrixFunc.generateMatrixDf()
     DataProcessing.spark.stop()
   }
 }

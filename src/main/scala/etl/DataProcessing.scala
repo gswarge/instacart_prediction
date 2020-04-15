@@ -18,7 +18,7 @@ object DataProcessing {
     import spark.implicits._
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
-    def loadData(){
+    def loadandProcessData(){
         println ("\n******Loading Data******\n")
         val csvPath = List("data/orders.csv","data/aisles.csv","data/departments.csv","data/products.csv","data/order_products_prior.csv","data/order_products_train.csv")
 
@@ -54,13 +54,14 @@ object DataProcessing {
                             csvPath(4))
         println("Loaded "+ csvPath(4))
         oppDF.printSchema()
-    /* //Load orderProducts train 
+    /* 
+        //Load orderProducts train 
         val optDF = spark.read.format("csv").option(
                         "header", "true").option("inferSchema", "true").load(
                             csvPath(5))
         println("Loaded "+ csvPath(5))
         optDF.printSchema()    
-        */
+    */
         // Merging Aisles and Products
         val productDf1 = mergeDf(productsDF,aislesDF, "aisle_id")
         productDf1.printSchema()
@@ -71,7 +72,7 @@ object DataProcessing {
 
         println("Merging order_products_prior with orders df")
         //orders prior table contains the details of the orders prior to that users most recent order, where as orders table consist details of only the orders without product ids or product information
-        val orderProductsDF = mergeDf(oppDF,ordersDF.select("user_id","order_id"),"order_id")
+        val orderProductsDF = mergeDf(oppDF,ordersDF.select("user_id","order_id","order_dow","order_hour_of_day","order_number"),"order_id")
         orderProductsDF.printSchema()
         orderProductsDF.show()
 
@@ -82,7 +83,7 @@ object DataProcessing {
         optDF.show()
     */ 
 
-        createItemMatrixDF(productDfFinal,orderProductsDF)
+        createFilteredDF(productDfFinal,orderProductsDF,5)
         
 }
 
@@ -98,22 +99,23 @@ object DataProcessing {
     /* 
         Need to merge orders.csv, opp.csv first, then based on the product_ids in alcohol df, pickup the rows from the merged dataframe
     */
-    def createItemMatrixDF(productDfFinal : DataFrame, orderProductsDF: DataFrame) ={
+    def createFilteredDF(productDfFinal : DataFrame, orderProductsDF: DataFrame,department_id: Int) ={
         //groupby Departments
-        productDfFinal.groupBy("department_id","department").count().show(21)
+       // productDfFinal.groupBy("department_id","department").count().show(21)
         /*
             selecting only alcohol department, It has about 1000 products, also, to start with only one dept for my Item-item matrix, deptid=5
         */
-        val alcoholDF = productDfFinal.filter(productDfFinal("department_id")===5)
-        //alcoholDF.show(15)
+        val alcoholDF = productDfFinal.filter(productDfFinal("department_id")=== department_id || productDfFinal("department_id")===7)
+        
         /*
-            Merging Orders information with products present only in Alcohol Department, hence effectively dropping all other orders not part of alcohol department, as default join method, is inner join 
+            Merging Orders information with products present only in Alcohol & Beverages Department, hence effectively dropping all other orders not part of alcohol department, as default join method, is inner join 
         */
         val filteredOrders = mergeDf(orderProductsDF,alcoholDF,"product_id")
         filteredOrders.printSchema()
         filteredOrders.show(10)
-        writeToCSV(filteredOrders,"data/filteredOrders.csv")
-        writeToParquet(filteredOrders,"data/filteredOrderes.parquet")
+        println("Writing Files: Parquet")
+        //writeToCSV(filteredOrders,"data/filteredDf.csv")
+        writeToParquet(filteredOrders,"data/filteredDF.parquet")
 
     }
 
@@ -138,10 +140,10 @@ object DataProcessing {
         /*
             Write to a CSV File
         */
-
         val spark = SparkSession.builder().getOrCreate()
         println("writing dataframe to csv!")
         df.write.format("com.databricks.spark.csv").option("header", "true").save(fileName)
+        println("csv file written!")
     }
 
     def writeToParquet(df: DataFrame, 
@@ -151,6 +153,7 @@ object DataProcessing {
         fileName:String): Unit = {
         println("Writing Parquet File")
         df.write.parquet(fileName)
+        println("file written")
     }
 
     def getParquet(parquetPath: String): DataFrame = {
