@@ -30,7 +30,7 @@ object ItemMatrixFunc {
     def userItemMatrix(filteredDf: DataFrame) = {
         /*
           Generate a userItemMatrix from dataframe and calculate similarties between each rows (ie users) using cosine similarity
-          Apply cosineSimilarity function to each row?
+         
         */
         println("\n**** Attempt to generate userItem Matrix & calculating cosine similarities **** \n")
        
@@ -40,7 +40,7 @@ object ItemMatrixFunc {
         val userItemDf2 = userItemDf.na.fill(0)
         //DataProcessing.writeToCSV(userItemDf,"data/userItemDf.csv")
        
-        val columnNames = userItemDf.columns.drop(1)
+        val columnNames = userItemDf.columns.drop(1)//dropping user_id as column
         //println("\ncolumn length: "+columnNames.length+" Column Names:\n"+columnNames.toSeq)
         println("Assembling Vectors")
         val assembler = new VectorAssembler()
@@ -51,11 +51,12 @@ object ItemMatrixFunc {
         println("\nAll columns combined to a vector column named 'productsPurchased'\n")
         output.select("productsPurchased","user_id").printSchema()
         output.select("user_id","productsPurchased").show(5)
-        println("\nMatrix Size: "+output.select("user_id","productsPurchased").count())
+        println("\nMatrix RowSize: "+output.select("user_id","productsPurchased").count())
         
+        //val outputRdd = output.select("user_id","productsPurchased").rdd.map{
+            //row => Vectors.dense(row.getAs[Seq[Double]](1).toArray)
         val outputRdd = output.select("user_id","productsPurchased").rdd.map{
-            row => Vectors.dense(row.getAs[Seq[Double]](1).toArray)
-            //Get second column value as Seq[Double],then as Array, then cast to Vector
+            row => row.getAs[Vector](1)
             }
         
         val prodPurchasePerUserRowMatrix = new RowMatrix(outputRdd)
