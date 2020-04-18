@@ -1,24 +1,111 @@
 package main
 import etl.DataProcessing
+import shapeless.Data
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import shapeless.Data
-import org.sparkproject.dmg.pmml.True
+import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.fpm.FPGrowth
+import org.apache.spark.mllib.linalg.{Vector,Vectors}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
+import org.sparkproject.dmg.pmml.True
 import java.util.zip.DataFormatException
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
 
 
 object ItemMatrixFunc {
     println("In ItemMatrix")
 
-    def generateMatrixDf(){
+    def loadProcessedData(){
         println("Here we go, Showtime !")
-        val filteredDF = DataProcessing.getParquet("data/filteredDF.parquet")
-        filteredDF.printSchema()
-        filteredDF.select("user_id","product_id","order_id").show(10)
-        println(filteredDF.count(), filteredDF.columns.size)
+        val filteredDf = DataProcessing.getParquet("data/filteredDF.parquet")
+        filteredDf.printSchema()
+        //filteredDf.select("user_id","product_id","order_id").show(10)
+        //println(filteredDf.count(), filteredDf.columns.size)
+    
+        userItemMatrix(filteredDf)
+        
+    }
 
+    def userItemMatrix(filteredDf: DataFrame) = {
         /*
+          Generate a userItemMatrix from dataframe and calculate similarties between each rows (ie users) using cosine similarity
+          Apply cosineSimilarity function to each row?
+        */
+        println("\n**** Attempt to generate userItem Matrix & calculating cosine similarities **** \n")
+       
+        val userItemDf = filteredDf.groupBy("user_id").pivot("product_id").count()
+        
+        println("\nUserItemMatrix rowLength: "+ userItemDf.count()+" | UserItemMatrix columnLength: " + userItemDf.columns.size)
+        val userItemDf2 = userItemDf.na.fill(0)
+        //DataProcessing.writeToCSV(userItemDf,"data/userItemDf.csv")
+       
+        val columnNames = userItemDf.columns.drop(1)
+        //println("\ncolumn length: "+columnNames.length+" Column Names:\n"+columnNames.toSeq)
+        println("Assembling Vectors")
+        val assembler = new VectorAssembler()
+            .setInputCols(columnNames)
+            .setOutputCol("productsPurchased")
+        
+        val output = assembler.transform(userItemDf2)
+        println("\nAll columns combined to a vector column named 'productsPurchased'\n")
+        output.select("productsPurchased","user_id").printSchema()
+        output.select("user_id","productsPurchased").show(5)
+        println("\nMatrix Size: "+output.select("user_id","productsPurchased").count())
+        
+        val outputRdd = output.select("user_id","productsPurchased").rdd.map{
+            row => Vectors.dense(row.getAs[Seq[Double]](1).toArray)
+            //Get second column value as Seq[Double],then as Array, then cast to Vector
+            }
+        
+        val prodPurchasePerUserRowMatrix = new RowMatrix(outputRdd)
+
+        // Compute cosine similarity between columns perfectly, with brute force.
+
+        val simsPerfect = prodPurchasePerUserRowMatrix.columnSimilarities()
+        println("\nNo. of Cols: "+simsPerfect.numCols()+ "\n No. of Rows: "+ simsPerfect.numRows())
+        
+    }
+
+    def itemItemMatrix(filteredDf: DataFrame) = {
+    
+        val itemItemDf = filteredDf.groupBy("product_id").pivot("product_id").count()
+        println("ItemMatrix rowLength: "+ itemItemDf.count()+" | ItemMatrix columnLength: " + itemItemDf.columns.size)
+        //val newfilteredDF=filteredDF.withColumn("product_id_2",filteredDF("product_id"))
+        //newfilteredDF.select("user_id","product_id","order_id","product_id_2").show(10)       
+        //val itemItemMatrix = newfilteredDF.select("user_id","order_id","product_id","product_id_2").stat.crosstab("product_id", "product_id_2")
+        
+        
+       // DataProcessing.writeToCSV(itemItemDf,"data/itemItemDf.csv")
+    
+
+    }
+
+    def fpGrowthTest()={
+/*
+        val dataset = spark.createDataset(Seq(
+        "1 2 5",
+        "1 2 3 5",
+        "1 2")
+        ).map(t => t.split(" ")).toDF("items")
+
+        val fpgrowth = new FPGrowth().setItemsCol("items").setMinSupport(0.5).setMinConfidence(0.6)
+        val model = fpgrowth.fit(dataset)
+
+        // Display frequent itemsets.
+        model.freqItemsets.show()
+
+        // Display generated association rules.
+        model.associationRules.show()
+
+        // transform examines the input items against all the association rules and summarize the
+        // consequents as prediction
+        model.transform(dataset).show()
+*/
+    }
+}
+
+/*
             Logic 1:
             In order to create User-Item Matrix, I need to convert our dataset into a matrix with the product names(or IDs) as the columns, the user_id as the index and the count of product_ids as the values. By doing this we shall get a dataframe with the columns as the product names and the rows for each user ids. Each column represents all the purchases of a product by all users in the dataset. The purchases appear as NAN where a user didn't purchase a certain product. 
 
@@ -35,51 +122,3 @@ object ItemMatrixFunc {
                 3.Use this item similarity matrix to find similar items for users
 
         */
-        val userItemDf = filteredDF.groupBy("user_id").pivot("product_id").count()
-        println("UserItemMatrix rowLength: "+ userItemDf.count()+" | UserItemMatrix columnLength: " + userItemDf.columns.size)
-    /*
-            (153696,13)
-            UserItemMatrix rowLength: 15798 | UserItemMatrix columnLength: 1055
-    */
-    /*
-     
-        val itemItemDf = filteredDF.groupBy("product_id").pivot("product_id").count()
-        println("ItemMatrix rowLength: "+ itemItemDf.count()+" | ItemMatrix columnLength: " + itemItemDf.columns.size)
-
-        //DataProcessing.writeToCSV(itemItemDf,"data/itemItemDf.csv")
-        //DataProcessing.writeToCSV(userItemDf,"data/userItemDf.csv")
-    */    
-        //userItemMatrix(userItemDf)
-        //itemItemMatrix(itemItemDf)
-        
-        val newfilteredDF=filteredDF.withColumn("product_id_2",filteredDF("product_id"))
-        newfilteredDF.select("user_id","product_id","order_id","product_id_2").show(10)       
-        val itemItemMatrix = newfilteredDF.select("user_id","order_id","product_id","product_id_2").stat.crosstab("product_id", "product_id_2")
-        //val userItemMatrix = filteredDF.select("user_id","order_id","product_id").stat.crosstab("product_id", "user_id")
-        DataProcessing.writeToCSV(itemItemMatrix,"data/itemItemDf.csv")
-        //DataProcessing.writeToCSV(itemItemMatrix,"data/userItemDf.csv")
-
-    }
-
-    def userItemMatrix(userItemDF: DataFrame) = {
-        /*
-          Generate a userItemMatrix from dataframe and calculate similarties between each rows (ie users) using cosine similarity
-          Apply cosineSimilarity function to each row?
-        */
-        
-        userItemDF.na.fill(0)
-        println ("Calculating Cosine Similarity")
-        //userItemDF
-        
-        
-    }
-
-    def itemItemMatrix(itemItemDF: DataFrame) = {
-        /*
-            val mat = new CoordinateMatrix(ratings.map {
-                  case Rating(user, movie, rating) => MatrixEntry(user, movie, rating)
-                })
-        */
-
-    }
-}

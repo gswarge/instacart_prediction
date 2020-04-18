@@ -3,7 +3,7 @@ package main
 /*
     Scala Object for calculating Cosine Similarity
 */
-object CosineSimilarity {
+object objCosineSimilarity {
 
     /*
         * This method takes 2 equal length arrays of integers 
@@ -11,7 +11,7 @@ object CosineSimilarity {
         * 0.9925 would be 99.25% similar
         * (x dot y)/||X|| ||Y||
    */
-    def cosineSimilarity(x: Array[Int], y:Array[Int]): Double = {
+    def calculateCosineSimilarity(x: Array[Int], y:Array[Int]): Double = {
         require(x.size == y.size)
         dotProduct(x,y)/(magnitude(x) * magnitude(y))
 
