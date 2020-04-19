@@ -7,9 +7,14 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.fpm.FPGrowth
 import org.apache.spark.mllib.linalg.{Vector,Vectors}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+import org.apache.spark.mllib.recommendation.ALS
+import org.apache.spark.mllib.recommendation.MatrixFactorizationModel
+import org.apache.spark.mllib.recommendation.Rating
 import org.sparkproject.dmg.pmml.True
 import java.util.zip.DataFormatException
-import org.apache.spark.mllib.linalg.distributed.RowMatrix
+
+
 
 
 
@@ -20,11 +25,55 @@ object ItemMatrixFunc {
         println("Here we go, Showtime !")
         val filteredDf = DataProcessing.getParquet("data/filteredDF.parquet")
         filteredDf.printSchema()
-        //filteredDf.select("user_id","product_id","order_id").show(10)
-        //println(filteredDf.count(), filteredDf.columns.size)
-    
-        userItemMatrix(filteredDf)
+
+        //userItemMatrix(filteredDf)
+        userItemMatrixAls(filteredDf)
+        //itemItemMatrix(filteredDf)
         
+    }
+
+    def userItemMatrixAls(filteredDF: DataFrame) ={
+        /*
+            Using default Alternate Least Squares method provided in MLlib library of Spark
+        */
+        val userItemDf = filteredDF.groupBy("user_id","product_id").count()
+        userItemDf.printSchema()
+        userItemDf.show(25)
+        val purchases = userItemDf.rdd.map( 
+            row => Rating(row.getAs[Int](0), row.getAs[Int](1), row.getLong(2).toDouble))
+        val rank = 10
+        val numIterations = 10
+        val model = ALS.train(purchases, rank, numIterations, 0.01)
+        
+        println("\nModel Ranks:\n"+model.rank)
+        // Evaluate the model on purchase counts
+        val usersProducts = purchases.map { 
+            case Rating(user, product, purchaseCount) => (user, product)
+        }
+
+        println("\nUser Products:\n"+usersProducts.top(5))
+
+        val predictions = model.predict(usersProducts).map { 
+            case Rating(user, product, purchaseCount) =>
+            ((user, product), purchaseCount)
+        }
+        println("\nPredictions:\n"+predictions.top(5))
+
+        val ratesAndPreds = purchases.map { 
+            case Rating(user, product, purchaseCount) =>((user, product), purchaseCount)
+        }.join(predictions)
+        
+        println("\nRates &  Predictions:\n"+ratesAndPreds.top(5))
+
+        val MSE = ratesAndPreds.map { 
+            case ((user, product), (r1, r2)) => 
+            val err = (r1 - r2) 
+            err * err
+        }.mean()
+       
+        println(s"\nMean Squared Error = $MSE\n")
+        //Mean Squared Error = 0.6048095711284814
+
     }
 
     def userItemMatrix(filteredDf: DataFrame) = {
@@ -35,6 +84,7 @@ object ItemMatrixFunc {
         println("\n**** Attempt to generate userItem Matrix & calculating cosine similarities **** \n")
        
         val userItemDf = filteredDf.groupBy("user_id").pivot("product_id").count()
+        
         
         println("\nUserItemMatrix rowLength: "+ userItemDf.count()+" | UserItemMatrix columnLength: " + userItemDf.columns.size)
         val userItemDf2 = userItemDf.na.fill(0)
@@ -49,33 +99,45 @@ object ItemMatrixFunc {
         
         val output = assembler.transform(userItemDf2)
         println("\nAll columns combined to a vector column named 'productsPurchased'\n")
-        output.select("productsPurchased","user_id").printSchema()
         output.select("user_id","productsPurchased").show(5)
         println("\nMatrix RowSize: "+output.select("user_id","productsPurchased").count())
         
         //val outputRdd = output.select("user_id","productsPurchased").rdd.map{
             //row => Vectors.dense(row.getAs[Seq[Double]](1).toArray)
+            //row.getAs[Vector](1)
         val outputRdd = output.select("user_id","productsPurchased").rdd.map{
-            row => row.getAs[Vector](1)
+            row => Vectors.dense(row.getAs[Seq[Double]](1).toArray)
             }
-        
+        print("\n RDD size count: "+outputRdd.count())
         val prodPurchasePerUserRowMatrix = new RowMatrix(outputRdd)
+            //http://spark.apache.org/docs/latest/ml-migration-guides.html
+        // Compute cosine similarity between columns 
 
-        // Compute cosine similarity between columns perfectly, with brute force.
-
-        val simsPerfect = prodPurchasePerUserRowMatrix.columnSimilarities()
-        println("\nNo. of Cols: "+simsPerfect.numCols()+ "\n No. of Rows: "+ simsPerfect.numRows())
+        val simsCols = prodPurchasePerUserRowMatrix.columnSimilarities()
+        println("\nNo. of Cols: "+simsCols.numCols()+ "\n No. of Rows: "+ simsCols.numRows())
         
     }
 
     def itemItemMatrix(filteredDf: DataFrame) = {
+
+        println("\n**** Attempt to generate Item-Item Matrix **** \n")
     
-        val itemItemDf = filteredDf.groupBy("product_id").pivot("product_id").count()
-        println("ItemMatrix rowLength: "+ itemItemDf.count()+" | ItemMatrix columnLength: " + itemItemDf.columns.size)
-        //val newfilteredDF=filteredDF.withColumn("product_id_2",filteredDF("product_id"))
-        //newfilteredDF.select("user_id","product_id","order_id","product_id_2").show(10)       
-        //val itemItemMatrix = newfilteredDF.select("user_id","order_id","product_id","product_id_2").stat.crosstab("product_id", "product_id_2")
-        
+        //val itemItemDf = filteredDf.groupBy("product_id").pivot("product_id").count()
+        //println("ItemMatrix rowLength: "+ itemItemDf.count()+" | ItemMatrix columnLength: " + itemItemDf.columns.size)
+
+        val fpgrowth = new FPGrowth().setItemsCol("product_id").setMinSupport(0.5).setMinConfidence(0.6)
+        val model = fpgrowth.fit(filteredDf)
+
+        // Display frequent itemsets.
+        model.freqItemsets.show()
+
+        // Display generated association rules.
+        model.associationRules.show()
+
+        // transform examines the input items against all the association rules and summarize the consequents as prediction
+       
+        model.transform(filteredDf).show()
+
         
        // DataProcessing.writeToCSV(itemItemDf,"data/itemItemDf.csv")
     
