@@ -21,3 +21,7 @@ resolvers += Classpaths.typesafeReleases
 mainClass in(Compile, run) := Some("main.instacartMain")
 mainClass in(Compile, packageBin) := Some("main.instacartMain")
 
+assemblyMergeStrategy in assembly := {
+ case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+ case x => MergeStrategy.first
+}
