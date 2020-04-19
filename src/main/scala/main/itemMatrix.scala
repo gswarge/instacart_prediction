@@ -1,5 +1,5 @@
 package main
-import etl.DataProcessing
+import etl.objDataProcessing
 import shapeless.Data
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -23,7 +23,7 @@ object ItemMatrixFunc {
 
     def loadProcessedData(){
         println("Here we go, Showtime !")
-        val filteredDf = DataProcessing.getParquet("data/filteredDF.parquet")
+        val filteredDf = objDataProcessing.getParquet("data/filteredDF.parquet")
         filteredDf.printSchema()
 
         //userItemMatrix(filteredDf)

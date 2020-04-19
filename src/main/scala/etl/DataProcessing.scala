@@ -7,7 +7,7 @@ import java.io.File
 import spire.syntax.`package`.order
 
 
-object DataProcessing {
+object objDataProcessing {
     println("In DataProcessing")
     
     val spark = SparkSession
@@ -18,7 +18,7 @@ object DataProcessing {
     import spark.implicits._
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
-    def loadandProcessData(){
+    def loadAndProcessData(){
         println ("\n******Loading Data******\n")
         val csvPath = List("data/orders.csv","data/aisles.csv","data/departments.csv","data/products.csv","data/order_products_prior.csv","data/order_products_train.csv")
 
@@ -63,16 +63,16 @@ object DataProcessing {
         optDF.printSchema()    
     */
         // Merging Aisles and Products
-        val productDf1 = mergeDf(productsDF,aislesDF, "aisle_id")
+        val productDf1 = mergeDf(productsDF,aislesDF, "aisle_id","inner")
         productDf1.printSchema()
         println("second merge products and departments...\nProducts DF final")
-        val productDfFinal = mergeDf(productDf1,departmentsDF,"department_id")
+        val productDfFinal = mergeDf(productDf1,departmentsDF,"department_id","inner")
         productDfFinal.printSchema()
         productDfFinal.show(5)
 
         println("Merging order_products_prior with orders df")
         //orders prior table contains the details of the orders prior to that users most recent order, where as orders table consist details of only the orders without product ids or product information
-        val orderProductsDF = mergeDf(oppDF,ordersDF.select("user_id","order_id","order_dow","order_hour_of_day","order_number"),"order_id")
+        val orderProductsDF = mergeDf(oppDF,ordersDF.select("user_id","order_id","order_dow","order_hour_of_day","order_number"),"order_id","outer")
         orderProductsDF.printSchema()
         orderProductsDF.show()
 
@@ -87,11 +87,12 @@ object DataProcessing {
         
 }
 
-    def mergeDf(df1: DataFrame,df2: DataFrame, key :String): DataFrame = {
+    def mergeDf(df1: DataFrame,df2: DataFrame, key :String, joinType:String): DataFrame = {
         //Merge dataframes and remove duplicate columns post merging
-        //Inner join is the default join in Spark, this joins two datasets on key columns and where keys don’t match the rows get dropped from both datasets.
+        //Inner join is the default join in Spark
         val colNames = df2.columns.toSeq
-        val finalDF = df1.alias("df1").join(df2.alias("df2"), key).drop(df2(key))
+        //val finalDF = df1.alias("df1").join(df2.alias("df2"), key).drop(df2(key))
+        val finalDF = df1.join(df2,Seq(key),joinType)
         println(finalDF.columns.toSeq)
     return finalDF
     }
@@ -110,7 +111,7 @@ object DataProcessing {
         /*
             Merging Orders information with products present only in Alcohol & Beverages Department, hence effectively dropping all other orders not part of alcohol department, as default join method, is inner join 
         */
-        val filteredOrders = mergeDf(orderProductsDF,alcoholDF,"product_id")
+        val filteredOrders = mergeDf(orderProductsDF,alcoholDF,"product_id","inner")
         filteredOrders.printSchema()
         filteredOrders.show(10)
         println("Writing Files: Parquet")

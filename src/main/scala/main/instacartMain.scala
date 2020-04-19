@@ -1,6 +1,6 @@
 package main
 
-import etl.DataProcessing
+import etl.objDataProcessing
 import org.apache.log4j.Logger
 
 class instacartMain extends Serializable {
@@ -16,10 +16,10 @@ object instacartMain extends Serializable{
 /*
     Run loadandProcessData() only once, it writes out a processed parquet file to be used for createItemMatrixDF()
 */
-    //DataProcessing.loadandProcessData()
+    //objDataProcessing.loadandProcessData()
     ItemMatrixFunc.loadProcessedData()
     
-    DataProcessing.spark.stop()
+    objDataProcessing.spark.stop()
   }
 }
 
