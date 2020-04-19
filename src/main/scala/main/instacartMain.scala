@@ -16,8 +16,8 @@ object instacartMain extends Serializable{
 /*
     Run loadandProcessData() only once, it writes out a processed parquet file to be used for createItemMatrixDF()
 */
-    //objDataProcessing.loadandProcessData()
-    ItemMatrixFunc.loadProcessedData()
+    //DataProcessing.loadandProcessData()
+    ItemMatrixFunc.loadProcessedData(args(0))
     
     objDataProcessing.spark.stop()
   }

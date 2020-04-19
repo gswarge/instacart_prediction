@@ -13,26 +13,61 @@ import org.apache.spark.mllib.recommendation.MatrixFactorizationModel
 import org.apache.spark.mllib.recommendation.Rating
 import org.sparkproject.dmg.pmml.True
 import java.util.zip.DataFormatException
-
-
-
+import org.apache.spark.sql.functions._
 
 
 object ItemMatrixFunc {
     println("In ItemMatrix")
 
-    def loadProcessedData(){
+    def loadProcessedData(inputPath: String){
         println("Here we go, Showtime !")
-        val filteredDf = objDataProcessing.getParquet("data/filteredDF.parquet")
-        filteredDf.printSchema()
 
+        val filteredDf = DataProcessing.getParquet(inputPath)
+        filteredDf.printSchema()
+        
+        val subDf = filteredDf.select("user_id","product_id", "order_id")
+
+        subDf.show(10)
+        print(subDf.count)
+        print(subDf.distinct.count)
+
+        val dfBasketJoin = generateItemItem(subDf)
+
+        // dfBasketJoin.show(1600)
+        dfBasketJoin.show(25)
+        print(dfBasketJoin.count)
+        
         //userItemMatrix(filteredDf)
-        userItemMatrixAls(filteredDf)
+        //userItemMatrixAls(filteredDf)
         //itemItemMatrix(filteredDf)
         
     }
 
-    def userItemMatrixAls(filteredDF: DataFrame) ={
+    def generateItemItem(inputDf: DataFrame): DataFrame = {
+        
+        val filteredDf = inputDf.sample(true, 0.1)
+
+        val dfOriginal = filteredDf.withColumnRenamed(
+            "user_id", "user_id_1").withColumnRenamed(
+            "product_id", "product_id_1").withColumnRenamed(
+            "order_id", "order_id_1")
+        
+        val dfMirror = filteredDf.withColumnRenamed(
+            "user_id", "user_id_2").withColumnRenamed(
+            "product_id", "product_id_2").withColumnRenamed(
+            "order_id", "order_id_2")
+        
+        val dfBasketJoin = dfOriginal.join(
+            dfMirror, 
+            dfOriginal("user_id_1") === dfMirror("user_id_2") && dfOriginal("order_id_1") === dfMirror("order_id_2"), 
+            "left_outer").withColumn(
+            "ones", lit(1))
+        
+        dfBasketJoin
+
+    }
+
+    def userItemMatrixAls(filteredDF: DataFrame) = {
         /*
             Using default Alternate Least Squares method provided in MLlib library of Spark
         */
