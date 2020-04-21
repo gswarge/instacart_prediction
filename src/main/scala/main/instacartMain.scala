@@ -14,11 +14,13 @@ object instacartMain extends Serializable{
     println("Initialising main...")
   
 /*
-    Run loadandProcessData() only once, it writes out a processed parquet file to be used for createItemMatrixDF()
+    Run first 3 steps only once, it writes out a processed parquet file to be used for createItemMatrixDF()
 */
-    //DataProcessing.loadandProcessData()
-    ItemMatrixFunc.loadProcessedData(args(0))
-    
+    //val processedDf = objDataProcessing.ingestAndProcessData()
+    //val filteredDf = objDataProcessing.generateDepWiseSample(processedDf)
+    //objDataProcessing.writeToParquet(filteredDf,"data/filteredf.parquet")
+    //Step 4 and beyond
+    objItemMatrix.loadProcessedData()
     objDataProcessing.spark.stop()
   }
 }

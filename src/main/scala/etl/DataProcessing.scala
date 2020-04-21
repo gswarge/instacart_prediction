@@ -18,7 +18,7 @@ object objDataProcessing {
     import spark.implicits._
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
-    def loadAndProcessData(){
+    def ingestAndProcessData(): DataFrame = {
         println ("\n******Loading Data******\n")
         val csvPath = List("data/orders.csv","data/aisles.csv","data/departments.csv","data/products.csv","data/order_products_prior.csv","data/order_products_train.csv")
 
@@ -63,18 +63,34 @@ object objDataProcessing {
         optDF.printSchema()    
     */
         // Merging Aisles and Products
+        println("\nProducts Count: "+productsDF.count())
         val productDf1 = mergeDf(productsDF,aislesDF, "aisle_id","inner")
+        println("\nProducts & Aisles Count: "+productDf1.count())
         productDf1.printSchema()
         println("second merge products and departments...\nProducts DF final")
         val productDfFinal = mergeDf(productDf1,departmentsDF,"department_id","inner")
+        println("\nProducts Final Count: "+productDfFinal.count())
         productDfFinal.printSchema()
         productDfFinal.show(5)
 
         println("Merging order_products_prior with orders df")
         //orders prior table contains the details of the orders prior to that users most recent order, where as orders table consist details of only the orders without product ids or product information
+        println("\nOrder_products_prior count:"+oppDF.count())
         val orderProductsDF = mergeDf(oppDF,ordersDF.select("user_id","order_id","order_dow","order_hour_of_day","order_number"),"order_id","outer")
+        println("\nMerged Opp count:"+orderProductsDF.count())
         orderProductsDF.printSchema()
         orderProductsDF.show()
+
+        //Merging orderProductsDf with productsDf to have department and aisles in the same dataframe
+        println("\nMerging orderProductsDf with  productsDf\n")
+        println("\norderProductsDf count:"+orderProductsDF.count())
+        val fullOrderProductsDf = mergeDf(orderProductsDF,productsDF,"product_id","outer")
+        println("\nFull orderProductsDf count:"+fullOrderProductsDf.count())
+        println("Schema of Full Dataset:\n"+fullOrderProductsDf.printSchema())
+        println(fullOrderProductsDf.show(10))
+        println("\nSaving Full Dataframe...")
+        writeToParquet(fullOrderProductsDf,"data/fullOrderProductsDf.parquet")        
+
 
     /*  // Merging train and orders database
         println("Merging order_products_train with orders df")
@@ -82,14 +98,12 @@ object objDataProcessing {
         optDF.printSchema()
         optDF.show()
     */ 
-
-        createFilteredDF(productDfFinal,orderProductsDF,5)
-        
-}
+        //createFilteredDF(productDfFinal,orderProductsDF,5)
+        fullOrderProductsDf
+    }
 
     def mergeDf(df1: DataFrame,df2: DataFrame, key :String, joinType:String): DataFrame = {
-        //Merge dataframes and remove duplicate columns post merging
-        //Inner join is the default join in Spark
+        //Merge dataframes and remove duplicate columns post merging, Inner join is the default join in Spark
         val colNames = df2.columns.toSeq
         //val finalDF = df1.alias("df1").join(df2.alias("df2"), key).drop(df2(key))
         val finalDF = df1.join(df2,Seq(key),joinType)
@@ -100,41 +114,18 @@ object objDataProcessing {
     /* 
         Need to merge orders.csv, opp.csv first, then based on the product_ids in alcohol df, pickup the rows from the merged dataframe
     */
-    def createFilteredDF(productDfFinal : DataFrame, orderProductsDF: DataFrame,department_id: Int) ={
-        //groupby Departments
-       // productDfFinal.groupBy("department_id","department").count().show(21)
-        /*
-            selecting only alcohol department, It has about 1000 products, also, to start with only one dept for my Item-item matrix, deptid=5
-        */
-        val alcoholDF = productDfFinal.filter(productDfFinal("department_id")=== department_id)
+
+    def generateRandomSample(inputDf: DataFrame, samplePercentage:Double = 0.10): DataFrame = {
         
-        /*
-            Merging Orders information with products present only in Alcohol & Beverages Department, hence effectively dropping all other orders not part of alcohol department, as default join method, is inner join 
-        */
-        val filteredOrders = mergeDf(orderProductsDF,alcoholDF,"product_id","inner")
-        filteredOrders.printSchema()
-        filteredOrders.show(10)
-        println("Writing Files: Parquet")
-        //writeToCSV(filteredOrders,"data/filteredDf.csv")
-        writeToParquet(filteredOrders,"data/filteredDF.parquet")
-
+        val filteredDf = inputDf.sample(true, samplePercentage)
+        filteredDf
     }
 
-    def eda() = {
-         /*
-            To do:
-            group by products in order id and count will give top selling products
-            group by user id and count(order_id) will give users with most orders and users with their order count
-            select only product orders from order_products_prior for those users whose data is in order_products_train
-        */
-        //productDfFinal.createOrReplaceGlobalTempView("products")
-        //oppDF.createOrReplaceGlobalTempView("orders_prior")
-        var output = spark.sql("'select COUNT(global_temp.order_id) from global_temp.orders_prior GROUP BY global_temp.product_id'")
-        output.show()
-
+    def generateDepWiseSample(inputDf: DataFrame,columnName: String = "department_id", departmentId:Int = 5): DataFrame = {
+        
+        val filteredDf = inputDf.filter(inputDf(columnName) === departmentId)
+        filteredDf
     }
-
-
 
 
     def writeToCSV(df: DataFrame, fileName: String): Unit = {
@@ -147,13 +138,12 @@ object objDataProcessing {
         println("csv file written!")
     }
 
-    def writeToParquet(df: DataFrame, 
+    def writeToParquet(df: DataFrame, filePath:String): Unit = {
         /*
             Write to Parquet File
         */
-        fileName:String): Unit = {
-        println("Writing Parquet File")
-        df.write.parquet(fileName)
+        println(s"Writing file at $filePath")
+        df.write.parquet(filePath)
         println("file written")
     }
 
@@ -165,7 +155,6 @@ object objDataProcessing {
 
     def readCSV(csvPath: String): DataFrame = {
         println("read csv!")
-        val csvPath = "orders.csv"
         val spark = SparkSession.builder().getOrCreate()
         val csvDf = spark.read.format("csv").option(
             "header", "true").option(

@@ -1,0 +1,251 @@
+******Loading Data******
+
+Loaded data/aisles.csv
+Loaded data/departments.csv
+Loaded data/products.csv
+Loaded data/orders.csv
+root
+ |-- order_id: integer (nullable = true)
+ |-- user_id: integer (nullable = true)
+ |-- eval_set: string (nullable = true)
+ |-- order_number: integer (nullable = true)
+ |-- order_dow: integer (nullable = true)
+ |-- order_hour_of_day: integer (nullable = true)
+ |-- days_since_prior_order: double (nullable = true)
+
++--------+-------+--------+------------+---------+-----------------+----------------------+
+|order_id|user_id|eval_set|order_number|order_dow|order_hour_of_day|days_since_prior_order|
++--------+-------+--------+------------+---------+-----------------+----------------------+
+| 2539329|      1|   prior|           1|        2|                8|                  null|
+| 2398795|      1|   prior|           2|        3|                7|                  15.0|
+|  473747|      1|   prior|           3|        3|               12|                  21.0|
+| 2254736|      1|   prior|           4|        4|                7|                  29.0|
+|  431534|      1|   prior|           5|        4|               15|                  28.0|
++--------+-------+--------+------------+---------+-----------------+----------------------+
+only showing top 5 rows
+
+Loaded data/order_products_prior.csv
+root
+ |-- order_id: integer (nullable = true)
+ |-- product_id: integer (nullable = true)
+ |-- add_to_cart_order: integer (nullable = true)
+ |-- reordered: integer (nullable = true)
+
+
+Products Count: 49688
+WrappedArray(aisle_id, product_id, product_name, department_id, aisle)
+
+Products & Aisles Count: 49687
+root
+ |-- aisle_id: string (nullable = true)
+ |-- product_id: integer (nullable = true)
+ |-- product_name: string (nullable = true)
+ |-- department_id: string (nullable = true)
+ |-- aisle: string (nullable = true)
+
+second merge products and departments...
+Products DF final
+WrappedArray(department_id, aisle_id, product_id, product_name, aisle, department)
+
+Products Final Count: 49687
+root
+ |-- department_id: string (nullable = true)
+ |-- aisle_id: string (nullable = true)
+ |-- product_id: integer (nullable = true)
+ |-- product_name: string (nullable = true)
+ |-- aisle: string (nullable = true)
+ |-- department: string (nullable = true)
+
++-------------+--------+----------+--------------------+--------------------+----------+
+|department_id|aisle_id|product_id|        product_name|               aisle|department|
++-------------+--------+----------+--------------------+--------------------+----------+
+|           19|      61|         1|Chocolate Sandwic...|       cookies cakes|    snacks|
+|           13|     104|         2|    All-Seasons Salt|   spices seasonings|    pantry|
+|            7|      94|         3|Robust Golden Uns...|                 tea| beverages|
+|            1|      38|         4|Smart Ones Classi...|        frozen meals|    frozen|
+|           13|       5|         5|Green Chile Anyti...|marinades meat pr...|    pantry|
++-------------+--------+----------+--------------------+--------------------+----------+
+only showing top 5 rows
+
+Merging order_products_prior with orders df
+
+Order_products_prior count:32434489
+WrappedArray(order_id, product_id, add_to_cart_order, reordered, user_id, order_dow, order_hour_of_day, order_number)
+
+Merged Opp count:32640698
+root
+ |-- order_id: integer (nullable = true)
+ |-- product_id: integer (nullable = true)
+ |-- add_to_cart_order: integer (nullable = true)
+ |-- reordered: integer (nullable = true)
+ |-- user_id: integer (nullable = true)
+ |-- order_dow: integer (nullable = true)
+ |-- order_hour_of_day: integer (nullable = true)
+ |-- order_number: integer (nullable = true)
+
++--------+----------+-----------------+---------+-------+---------+-----------------+------------+
+|order_id|product_id|add_to_cart_order|reordered|user_id|order_dow|order_hour_of_day|order_number|
++--------+----------+-----------------+---------+-------+---------+-----------------+------------+
+|     148|     38650|                1|        0|  41523|        2|               17|          27|
+|     148|     25659|                2|        0|  41523|        2|               17|          27|
+|     148|     35951|                3|        1|  41523|        2|               17|          27|
+|     148|     34197|                4|        1|  41523|        2|               17|          27|
+|     148|     11712|                5|        1|  41523|        2|               17|          27|
+|     148|     26940|                6|        1|  41523|        2|               17|          27|
+|     148|     48364|                7|        0|  41523|        2|               17|          27|
+|     148|     21903|                8|        1|  41523|        2|               17|          27|
+|     148|     14881|                9|        1|  41523|        2|               17|          27|
+|     148|     34720|               10|        1|  41523|        2|               17|          27|
+|     148|      1158|               11|        1|  41523|        2|               17|          27|
+|     148|     26606|               12|        0|  41523|        2|               17|          27|
+|     148|     47209|               13|        1|  41523|        2|               17|          27|
+|     148|     21614|               14|        1|  41523|        2|               17|          27|
+|     463|     36051|                1|        0|  92093|        1|               17|          18|
+|     471|      8193|                1|        0|  52745|        6|               18|           5|
+|     471|     10814|                2|        0|  52745|        6|               18|           5|
+|     471|     40585|                3|        0|  52745|        6|               18|           5|
+|     471|     16185|                4|        0|  52745|        6|               18|           5|
+|     471|      5337|                5|        0|  52745|        6|               18|           5|
++--------+----------+-----------------+---------+-------+---------+-----------------+------------+
+only showing top 20 rows
+
+
+Merging orderProductsDf with  productsDf
+
+
+orderProductsDf count:32640698
+WrappedArray(product_id, order_id, add_to_cart_order, reordered, user_id, order_dow, order_hour_of_day, order_number, product_name, aisle_id, department_id)
+
+Full orderProductsDf count:32640709
+root
+ |-- product_id: integer (nullable = true)
+ |-- order_id: integer (nullable = true)
+ |-- add_to_cart_order: integer (nullable = true)
+ |-- reordered: integer (nullable = true)
+ |-- user_id: integer (nullable = true)
+ |-- order_dow: integer (nullable = true)
+ |-- order_hour_of_day: integer (nullable = true)
+ |-- order_number: integer (nullable = true)
+ |-- product_name: string (nullable = true)
+ |-- aisle_id: string (nullable = true)
+ |-- department_id: string (nullable = true)
+
+Schema of Full Dataset:
+()
++----------+--------+-----------------+---------+-------+---------+-----------------+------------+------------+--------+-------------+
+|product_id|order_id|add_to_cart_order|reordered|user_id|order_dow|order_hour_of_day|order_number|product_name|aisle_id|department_id|
++----------+--------+-----------------+---------+-------+---------+-----------------+------------+------------+--------+-------------+
+|       148|  133160|               26|        0|  47136|        0|               18|           3|  Nectarines|      24|            4|
+|       148|  210175|               15|        1|  12428|        5|               15|          14|  Nectarines|      24|            4|
+|       148|  295286|               10|        0|  63587|        3|               22|           1|  Nectarines|      24|            4|
+|       148|  407324|               11|        0| 158452|        2|                9|          11|  Nectarines|      24|            4|
+|       148|  544414|               17|        0|  82360|        6|               20|           3|  Nectarines|      24|            4|
+|       148|  602118|                3|        1| 157841|        4|               14|          12|  Nectarines|      24|            4|
+|       148|  716590|               27|        0|   8196|        4|               17|           1|  Nectarines|      24|            4|
+|       148|  730383|               31|        1|  30910|        5|               21|           3|  Nectarines|      24|            4|
+|       148|  734099|                6|        1| 122073|        6|                7|           9|  Nectarines|      24|            4|
+|       148| 1074455|               11|        1| 145986|        3|               16|           6|  Nectarines|      24|            4|
++----------+--------+-----------------+---------+-------+---------+-----------------+------------+------------+--------+-------------+
+only showing top 10 rows
+
+()
+
+Saving Full Dataframe...
+Writing file at data/fullOrderProductsDf.parquet
+file written
+Writing file at data/filteredf.parquet
+file written
+In ItemMatrix
+Loading filtered dataset of department Alcohol:
+reading parquet file!
+root
+ |-- product_id: integer (nullable = true)
+ |-- order_id: integer (nullable = true)
+ |-- add_to_cart_order: integer (nullable = true)
+ |-- reordered: integer (nullable = true)
+ |-- user_id: integer (nullable = true)
+ |-- order_dow: integer (nullable = true)
+ |-- order_hour_of_day: integer (nullable = true)
+ |-- order_number: integer (nullable = true)
+ |-- product_name: string (nullable = true)
+ |-- aisle_id: string (nullable = true)
+ |-- department_id: string (nullable = true)
+
++----------+--------+-----------------+---------+-------+---------+-----------------+------------+---------------+--------+-------------+
+|product_id|order_id|add_to_cart_order|reordered|user_id|order_dow|order_hour_of_day|order_number|   product_name|aisle_id|department_id|
++----------+--------+-----------------+---------+-------+---------+-----------------+------------+---------------+--------+-------------+
+|      1401| 1871854|               13|        0| 205022|        5|               10|           2| Relax Riesling|      62|            5|
+|      1401| 3409991|               15|        0|   2502|        3|               16|           5| Relax Riesling|      62|            5|
+|      1401| 2801756|                3|        0| 140656|        5|               15|           3| Relax Riesling|      62|            5|
+|      1401|  138557|                6|        1| 201432|        0|               21|          12| Relax Riesling|      62|            5|
+|      1401| 1337880|               17|        1| 201432|        2|               15|          24| Relax Riesling|      62|            5|
+|      1401|  147805|               24|        0| 164682|        4|               10|           3| Relax Riesling|      62|            5|
+|      1401| 2757722|                2|        0|  34938|        3|               13|           1| Relax Riesling|      62|            5|
+|      1401|  222168|               33|        1| 201432|        6|               11|           5| Relax Riesling|      62|            5|
+|      1401| 2896873|               11|        0| 201432|        0|               18|           4| Relax Riesling|      62|            5|
+|      1401|  383874|               11|        0| 150340|        1|               11|          19| Relax Riesling|      62|            5|
+|      1401|   95576|                7|        0| 134723|        1|               10|           3| Relax Riesling|      62|            5|
+|      1401| 3312488|                3|        0| 141628|        6|                0|           5| Relax Riesling|      62|            5|
+|      2120|   99861|                1|        1|  94764|        4|               17|          23|Sauvignon Blanc|      62|            5|
+|      2120|  184976|                1|        1|  16758|        6|               19|          26|Sauvignon Blanc|      62|            5|
+|      2120|  198800|                1|        0|  31056|        0|               20|           6|Sauvignon Blanc|      62|            5|
++----------+--------+-----------------+---------+-------+---------+-----------------+------------+---------------+--------+-------------+
+only showing top 15 rows
+
+Selecting 3 columns:
++-------+----------+--------+
+|user_id|product_id|order_id|
++-------+----------+--------+
+| 205022|      1401| 1871854|
+|   2502|      1401| 3409991|
+| 140656|      1401| 2801756|
+| 201432|      1401|  138557|
+| 201432|      1401| 1337880|
+| 164682|      1401|  147805|
+|  34938|      1401| 2757722|
+| 201432|      1401|  222168|
+| 201432|      1401| 2896873|
+| 150340|      1401|  383874|
++-------+----------+--------+
+only showing top 10 rows
+
+
+FilteredDf Count:153696
+
+FilteredDf Distinct Count:153696
+
+ Basket Join
++---------+------------+----------+---------+------------+----------+----+
+|user_id_1|product_id_1|order_id_1|user_id_2|product_id_2|order_id_2|ones|
++---------+------------+----------+---------+------------+----------+----+
+|   201432|        1401|   2896873|   201432|        1401|   2896873|   1|
+|   201432|        1401|   2896873|   201432|        1401|   2896873|   1|
+|   201432|        1401|   2896873|   201432|        1401|   2896873|   1|
+|   201432|        1401|   2896873|   201432|        1401|   2896873|   1|
+|   114985|        2120|    876272|   114985|       42398|    876272|   1|
+|   114985|        2120|    876272|   114985|        2120|    876272|   1|
+|    63186|        2120|   1251984|    63186|        2120|   1251984|   1|
+|     4323|        2120|   1446867|     4323|        2120|   1446867|   1|
+|    11631|        2120|     32871|    11631|        2120|     32871|   1|
+|   152857|        2120|    150420|   152857|        2120|    150420|   1|
+|   106021|        2120|    220175|   106021|        2903|    220175|   1|
+|   106021|        2120|    220175|   106021|       41539|    220175|   1|
+|   106021|        2120|    220175|   106021|       16683|    220175|   1|
+|   106021|        2120|    220175|   106021|        2120|    220175|   1|
+|    28028|        2120|    435987|    28028|        2120|    435987|   1|
+|     4035|        2120|   1363428|     4035|       36425|   1363428|   1|
+|     4035|        2120|   1363428|     4035|        2120|   1363428|   1|
+|   185977|        2120|   2126645|   185977|        2120|   2126645|   1|
+|   118765|        2120|   2137369|   118765|        2120|   2137369|   1|
+|    76006|        2120|   2354318|    76006|        2120|   2354318|   1|
+|   178263|        2120|   3048327|   178263|        2120|   3048327|   1|
+|   126187|        2120|   1033869|   126187|        2120|   1033869|   1|
+|   156232|        2120|   1914212|   156232|        2120|   1914212|   1|
+|   185549|        2120|   2048717|   185549|        2120|   2048717|   1|
+|    52540|        2120|   2264630|    52540|        2120|   2264630|   1|
++---------+------------+----------+---------+------------+----------+----+
+only showing top 25 rows
+
+20037
+[success] Total time: 1011 s (16:51), completed 19 Apr, 2020 7:05:32 PM
+G-2:instacart_prediction apple$ 

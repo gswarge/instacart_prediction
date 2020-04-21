@@ -1,70 +1,100 @@
 package main
 import etl.objDataProcessing
 import shapeless.Data
+import org.sparkproject.dmg.pmml.True
+import java.util.zip.DataFormatException
 import org.apache.log4j.Logger
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.fpm.FPGrowth
+import org.apache.spark.ml.feature.Normalizer
 import org.apache.spark.mllib.linalg.{Vector,Vectors}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.mllib.recommendation.ALS
 import org.apache.spark.mllib.recommendation.MatrixFactorizationModel
 import org.apache.spark.mllib.recommendation.Rating
-import org.sparkproject.dmg.pmml.True
-import java.util.zip.DataFormatException
-import org.apache.spark.sql.functions._
 
 
-object ItemMatrixFunc {
+
+
+object objItemMatrix {
     println("In ItemMatrix")
+    val spark = SparkSession
+        .builder()
+        .appName("Instacart Prediction Project")
+        .config("spark.master", "local[*]")
+        .getOrCreate()
+    import spark.implicits._
+    spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
-    def loadProcessedData(inputPath: String){
-        println("Here we go, Showtime !")
-
-        val filteredDf = DataProcessing.getParquet(inputPath)
+    def loadProcessedData(inputPath: String="data/filteredf.parquet"){
+        
+        println("Loading filtered dataset of department Alcohol:")
+        val filteredDf = objDataProcessing.getParquet(inputPath)
         filteredDf.printSchema()
-        
+        filteredDf.show(15)
+        filteredDf.count()
+
+        println("Selecting 3 columns:")
         val subDf = filteredDf.select("user_id","product_id", "order_id")
-
         subDf.show(10)
-        print(subDf.count)
-        print(subDf.distinct.count)
+        println("\nFilteredDf Count:"+subDf.count)
+        println("\nFilteredDf Distinct Count:"+subDf.distinct.count)
 
-        val dfBasketJoin = generateItemItem(subDf)
+        val itemMatrixDf = generateItemItemMatrix(subDf)
+        //objDataProcessing.writeToCSV(itemMatrixDf,"data/ItemItemMatrix.csv")
+        //val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
+        println(itemMatrixDf.count)
+        
+        val normalisedMatrix = generateNormalisedMatrix(itemMatrixDf)
 
-        // dfBasketJoin.show(1600)
-        dfBasketJoin.show(25)
-        print(dfBasketJoin.count)
         
-        //userItemMatrix(filteredDf)
-        //userItemMatrixAls(filteredDf)
-        //itemItemMatrix(filteredDf)
-        
+
+       
+    }
+    def generateItemItemMatrix(inputDf: DataFrame): DataFrame = {
+        println  ("\nGenerating ItemItem matrix")
+        val itemMatrixDf = inputDf.drop("user_id")
+                .withColumnRenamed("product_id","product_id_left")
+                .as("df1")
+                .join(inputDf.as("df2"),$"df1.order_id" === $"df2.order_id")
+                .withColumn("ones",lit(1))
+                .withColumnRenamed("product_id","product_id_right")
+                .drop("order_id","user_id")
+                .groupBy("product_id_left")
+                .pivot("product_id_right")
+                .count()
+                .na.fill(0)
+
+        println("\nMatrix Generated:")
+        println(itemMatrixDf.count())
+
+        itemMatrixDf
     }
 
-    def generateItemItem(inputDf: DataFrame): DataFrame = {
-        
-        val filteredDf = inputDf.sample(true, 0.1)
+    def generateNormalisedMatrix(inputDf: DataFrame): DataFrame ={
 
-        val dfOriginal = filteredDf.withColumnRenamed(
-            "user_id", "user_id_1").withColumnRenamed(
-            "product_id", "product_id_1").withColumnRenamed(
-            "order_id", "order_id_1")
+        println("Assembling Vectors")
+        val columnNames = inputDf.columns
+        val assembler = new VectorAssembler()
+            .setInputCols(columnNames)
+            .setOutputCol("features")
         
-        val dfMirror = filteredDf.withColumnRenamed(
-            "user_id", "user_id_2").withColumnRenamed(
-            "product_id", "product_id_2").withColumnRenamed(
-            "order_id", "order_id_2")
+        val output = assembler.transform(inputDf)
+        println("\nAll columns combined to a vector column named 'features'\n")
+        println("\nMatrix RowSize: "+output.count())
         
-        val dfBasketJoin = dfOriginal.join(
-            dfMirror, 
-            dfOriginal("user_id_1") === dfMirror("user_id_2") && dfOriginal("order_id_1") === dfMirror("order_id_2"), 
-            "left_outer").withColumn(
-            "ones", lit(1))
+        val normalizer = new Normalizer()
+                .setInputCol("features")
+                .setOutputCol("normFeatures")
+                .setP(1.0)
         
-        dfBasketJoin
-
+        val l1NormData = normalizer.transform(output)
+        println("Normalized using L^1 norm")
+        l1NormData
     }
 
     def userItemMatrixAls(filteredDF: DataFrame) = {
@@ -111,7 +141,7 @@ object ItemMatrixFunc {
 
     }
 
-    def userItemMatrix(filteredDf: DataFrame) = {
+    def generateUserItemMatrix(filteredDf: DataFrame) = {
         /*
           Generate a userItemMatrix from dataframe and calculate similarties between each rows (ie users) using cosine similarity
          
@@ -152,71 +182,4 @@ object ItemMatrixFunc {
         println("\nNo. of Cols: "+simsCols.numCols()+ "\n No. of Rows: "+ simsCols.numRows())
         
     }
-
-    def itemItemMatrix(filteredDf: DataFrame) = {
-
-        println("\n**** Attempt to generate Item-Item Matrix **** \n")
-    
-        //val itemItemDf = filteredDf.groupBy("product_id").pivot("product_id").count()
-        //println("ItemMatrix rowLength: "+ itemItemDf.count()+" | ItemMatrix columnLength: " + itemItemDf.columns.size)
-
-        val fpgrowth = new FPGrowth().setItemsCol("product_id").setMinSupport(0.5).setMinConfidence(0.6)
-        val model = fpgrowth.fit(filteredDf)
-
-        // Display frequent itemsets.
-        model.freqItemsets.show()
-
-        // Display generated association rules.
-        model.associationRules.show()
-
-        // transform examines the input items against all the association rules and summarize the consequents as prediction
-       
-        model.transform(filteredDf).show()
-
-        
-       // DataProcessing.writeToCSV(itemItemDf,"data/itemItemDf.csv")
-    
-
-    }
-
-    def fpGrowthTest()={
-/*
-        val dataset = spark.createDataset(Seq(
-        "1 2 5",
-        "1 2 3 5",
-        "1 2")
-        ).map(t => t.split(" ")).toDF("items")
-
-        val fpgrowth = new FPGrowth().setItemsCol("items").setMinSupport(0.5).setMinConfidence(0.6)
-        val model = fpgrowth.fit(dataset)
-
-        // Display frequent itemsets.
-        model.freqItemsets.show()
-
-        // Display generated association rules.
-        model.associationRules.show()
-
-        // transform examines the input items against all the association rules and summarize the
-        // consequents as prediction
-        model.transform(dataset).show()
-*/
-    }
 }
-
-/*
-            Logic 1:
-            In order to create User-Item Matrix, I need to convert our dataset into a matrix with the product names(or IDs) as the columns, the user_id as the index and the count of product_ids as the values. By doing this we shall get a dataframe with the columns as the product names and the rows for each user ids. Each column represents all the purchases of a product by all users in the dataset. The purchases appear as NAN where a user didn't purchase a certain product. 
-
-            We should be able use this matrix to compute the correlation between the purchases of a single product and the rest of the products in the matrix.
-            this can be achieved via groupby and pivot
-
-            Logic 2:
-            For item-item matrix, each product_id is a column as well as a row and the value at the correlation is the no of times the products were  purchased together.
-            logic: for each orderID, increment the (prod1,prod2) value in the matrix
-            Diagonals of the matrix will be the max no of times the product is purchased.
-            For an item-similarity based recommender:
-                1.Represent all items by a feature vector
-                2. Construct an item-item similarity matrix by computing a similarity metric (such as cosine) with each items pair
-                3.Use this item similarity matrix to find similar items for users
-
-        */
