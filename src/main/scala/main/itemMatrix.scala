@@ -30,37 +30,30 @@ object objItemMatrix {
     import spark.implicits._
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
-    def loadProcessedData(inputPath: String="data/filteredf.parquet"){
+    def loadProcessedData(inputPath: String="data/filteredf.parquet"): DataFrame = {
         
-        println("Loading filtered dataset of department Alcohol:")
+        println(s"\nLoading  $inputPath:")
         val filteredDf = objDataProcessing.getParquet(inputPath)
         filteredDf.printSchema()
         filteredDf.show(15)
         filteredDf.count()
+        
+        filteredDf
+    }
+
+    def generateItemItemMatrix(inputDf: DataFrame): DataFrame = {
 
         println("Selecting 3 columns:")
-        val subDf = filteredDf.select("user_id","product_id", "order_id")
+        val subDf = inputDf.select("user_id","product_id", "order_id")
         subDf.show(10)
         println("\nFilteredDf Count:"+subDf.count)
         println("\nFilteredDf Distinct Count:"+subDf.distinct.count)
 
-        val itemMatrixDf = generateItemItemMatrix(subDf)
-        //objDataProcessing.writeToCSV(itemMatrixDf,"data/ItemItemMatrix.csv")
-        //val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
-        println(itemMatrixDf.count)
-        
-        val normalisedMatrix = generateNormalisedMatrix(itemMatrixDf)
-
-        
-
-       
-    }
-    def generateItemItemMatrix(inputDf: DataFrame): DataFrame = {
         println  ("\nGenerating ItemItem matrix")
-        val itemMatrixDf = inputDf.drop("user_id")
+        val itemMatrixDf = subDf.drop("user_id")
                 .withColumnRenamed("product_id","product_id_left")
                 .as("df1")
-                .join(inputDf.as("df2"),$"df1.order_id" === $"df2.order_id")
+                .join(subDf.as("df2"),$"df1.order_id" === $"df2.order_id")
                 .withColumn("ones",lit(1))
                 .withColumnRenamed("product_id","product_id_right")
                 .drop("order_id","user_id")
@@ -77,7 +70,7 @@ object objItemMatrix {
 
     def generateNormalisedMatrix(inputDf: DataFrame): DataFrame ={
 
-        println("Assembling Vectors")
+        println("\nGenerting Normalised matrix, \nstep1: Assembling columns as Vectors")
         val columnNames = inputDf.columns
         val assembler = new VectorAssembler()
             .setInputCols(columnNames)
@@ -99,7 +92,7 @@ object objItemMatrix {
 
     def userItemMatrixAls(filteredDF: DataFrame) = {
         /*
-            Using default Alternate Least Squares method provided in MLlib library of Spark
+            Using default Alternate Least Squares method provided in Spark
         */
         val userItemDf = filteredDF.groupBy("user_id","product_id").count()
         userItemDf.printSchema()

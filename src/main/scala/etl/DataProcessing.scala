@@ -18,7 +18,7 @@ object objDataProcessing {
     import spark.implicits._
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
-    def ingestAndProcessData(): DataFrame = {
+    def ingestAndProcessData(fullProcessedDfPath: String): DataFrame = {
         println ("\n******Loading Data******\n")
         val csvPath = List("data/orders.csv","data/aisles.csv","data/departments.csv","data/products.csv","data/order_products_prior.csv","data/order_products_train.csv")
 
@@ -88,8 +88,9 @@ object objDataProcessing {
         println("\nFull orderProductsDf count:"+fullOrderProductsDf.count())
         println("Schema of Full Dataset:\n"+fullOrderProductsDf.printSchema())
         println(fullOrderProductsDf.show(10))
-        println("\nSaving Full Dataframe...")
-        writeToParquet(fullOrderProductsDf,"data/fullOrderProductsDf.parquet")        
+        
+        println(s"\nSaving Full Dataframe at $fullProcessedDfPath")
+        writeToParquet(fullOrderProductsDf,fullProcessedDfPath)        
 
 
     /*  // Merging train and orders database
@@ -98,22 +99,16 @@ object objDataProcessing {
         optDF.printSchema()
         optDF.show()
     */ 
-        //createFilteredDF(productDfFinal,orderProductsDF,5)
         fullOrderProductsDf
     }
 
     def mergeDf(df1: DataFrame,df2: DataFrame, key :String, joinType:String): DataFrame = {
         //Merge dataframes and remove duplicate columns post merging, Inner join is the default join in Spark
-        val colNames = df2.columns.toSeq
         //val finalDF = df1.alias("df1").join(df2.alias("df2"), key).drop(df2(key))
         val finalDF = df1.join(df2,Seq(key),joinType)
-        println(finalDF.columns.toSeq)
-    return finalDF
+        finalDF
     }
    
-    /* 
-        Need to merge orders.csv, opp.csv first, then based on the product_ids in alcohol df, pickup the rows from the merged dataframe
-    */
 
     def generateRandomSample(inputDf: DataFrame, samplePercentage:Double = 0.10): DataFrame = {
         
