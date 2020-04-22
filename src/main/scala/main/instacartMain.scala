@@ -29,7 +29,8 @@ object instacartMain extends Serializable{
 
 
     //Step 3 : Load processed data, by default it'll load the subset of the full dataset
-    val processedDf = objItemMatrix.loadProcessedData()
+    //use args[0] for commandline paths
+    val processedDf = objDataProcessing.getParquet(fullProcessedDfPath)
     
     //step 4: Generate ItemItemMatrix
     val itemMatrixDf = objItemMatrix.generateItemItemMatrix(processedDf)

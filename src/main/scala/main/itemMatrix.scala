@@ -29,25 +29,19 @@ object objItemMatrix {
         .getOrCreate()
     import spark.implicits._
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
-
-    def loadProcessedData(inputPath: String="data/filteredf.parquet"): DataFrame = {
-        
-        println(s"\nLoading  $inputPath:")
-        val filteredDf = objDataProcessing.getParquet(inputPath)
-        filteredDf.printSchema()
-        filteredDf.show(15)
-        filteredDf.count()
-        
-        filteredDf
-    }
+ 
 
     def generateItemItemMatrix(inputDf: DataFrame): DataFrame = {
-
-        println("Selecting 3 columns:")
+        println("\nChecking Processed DataSet: ")
+        inputDf.show(5)
+        println("\nSelecting only required columns: user_id, product_id, order_id...")
         val subDf = inputDf.select("user_id","product_id", "order_id")
+        //setting max values for Pivot, since we have total 50k products
+        spark.conf.set("spark.sql.pivotMaxValues", inputDf.count())
+        
         subDf.show(10)
-        println("\nFilteredDf Count:"+subDf.count)
-        println("\nFilteredDf Distinct Count:"+subDf.distinct.count)
+        println("\nDataset RowCount: "+subDf.count)
+        println("\nDistinct RowCount: "+subDf.distinct.count)
 
         println  ("\nGenerating ItemItem matrix")
         val itemMatrixDf = subDf.drop("user_id")
@@ -62,15 +56,14 @@ object objItemMatrix {
                 .count()
                 .na.fill(0)
 
-        println("\nMatrix Generated:")
-        println(itemMatrixDf.count())
+        println("\nMatrix Generated, row count: "+itemMatrixDf.count())
 
         itemMatrixDf
     }
 
     def generateNormalisedMatrix(inputDf: DataFrame): DataFrame ={
 
-        println("\nGenerting Normalised matrix, \nstep1: Assembling columns as Vectors")
+        println("\nGenerting Normalised matrix, \n\nStep1: Assembling feature columns as Vectors")
         val columnNames = inputDf.columns
         val assembler = new VectorAssembler()
             .setInputCols(columnNames)
@@ -86,8 +79,32 @@ object objItemMatrix {
                 .setP(1.0)
         
         val l1NormData = normalizer.transform(output)
-        println("Normalized using L^1 norm")
+        println("\nNormalized using L^1 norm")
         l1NormData
+    }
+    
+    def generateItemItem(inputDf: DataFrame): DataFrame = {
+
+        val filteredDf = inputDf.sample(true, 0.1)
+
+        val dfOriginal = filteredDf.withColumnRenamed(
+            "user_id", "user_id_1").withColumnRenamed(
+            "product_id", "product_id_1").withColumnRenamed(
+            "order_id", "order_id_1")
+
+        val dfMirror = filteredDf.withColumnRenamed(
+            "user_id", "user_id_2").withColumnRenamed(
+            "product_id", "product_id_2").withColumnRenamed(
+            "order_id", "order_id_2")
+
+        val dfBasketJoin = dfOriginal.join(
+            dfMirror, 
+            dfOriginal("user_id_1") === dfMirror("user_id_2") && dfOriginal("order_id_1") === dfMirror("order_id_2"), 
+            "left_outer").withColumn(
+            "ones", lit(1))
+
+        dfBasketJoin
+
     }
 
     def userItemMatrixAls(filteredDF: DataFrame) = {

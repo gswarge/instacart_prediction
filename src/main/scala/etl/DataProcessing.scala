@@ -143,8 +143,8 @@ object objDataProcessing {
     }
 
     def getParquet(parquetPath: String): DataFrame = {
+        println(s"\nLoading  $parquetPath:")
         val spark = SparkSession.builder().getOrCreate()
-        println("reading parquet file!")
         spark.read.parquet(parquetPath)
     }
 
