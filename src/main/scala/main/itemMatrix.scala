@@ -36,14 +36,18 @@ object objItemMatrix {
         inputDf.show(5)
         println("\nSelecting only required columns: user_id, product_id, order_id...")
         val subDf = inputDf.select("user_id","product_id", "order_id")
-        //setting max values for Pivot, since we have total 50k products
-        spark.conf.set("spark.sql.pivotMaxValues", inputDf.count())
         
         subDf.show(10)
-        println("\nDataset RowCount: "+subDf.count)
-        println("\nDistinct RowCount: "+subDf.distinct.count)
+        //println("\nDataset RowCount: "+subDf.count)
+        //println("\nDistinct RowCount: "+subDf.distinct.count)
 
         println  ("\nGenerating ItemItem matrix")
+        val columnNames = subDf.select("product_id").distinct.map(
+                        row => row(0).asInstanceOf[Int]).collect().toSeq
+        println("\nColmnNames Length: "+columnNames.length)
+         //setting max values for Pivot, since we have total 50k products
+        spark.conf.set("spark.sql.pivotMaxValues", columnNames.length)
+
         val itemMatrixDf = subDf.drop("user_id")
                 .withColumnRenamed("product_id","product_id_left")
                 .as("df1")
@@ -52,12 +56,11 @@ object objItemMatrix {
                 .withColumnRenamed("product_id","product_id_right")
                 .drop("order_id","user_id")
                 .groupBy("product_id_left")
-                .pivot("product_id_right")
+                .pivot("product_id_right",columnNames)
                 .count()
                 .na.fill(0)
 
-        println("\nMatrix Generated, row count: "+itemMatrixDf.count())
-
+        println("\nMatrix Generated")
         itemMatrixDf
     }
 

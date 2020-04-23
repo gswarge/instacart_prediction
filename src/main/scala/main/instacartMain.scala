@@ -34,7 +34,7 @@ object instacartMain extends Serializable{
     
     //step 4: Generate ItemItemMatrix
     val itemMatrixDf = objItemMatrix.generateItemItemMatrix(processedDf)
-    //objDataProcessing.writeToCSV(itemMatrixDf,"data/ItemItemMatrix.csv")
+    objDataProcessing.writeToCSV(itemMatrixDf,"data/fullItemItemMatrix.csv")
 
     //Step 5: Normalise generated Matrix
     //val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
