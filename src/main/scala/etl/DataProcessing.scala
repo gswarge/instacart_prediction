@@ -127,7 +127,7 @@ object objDataProcessing {
         /*
             Write to a CSV File
         */
-        val spark = SparkSession.builder().getOrCreate()
+        
         println("writing dataframe to csv!")
         df.write.format("com.databricks.spark.csv").option("header", "true").save(fileName)
         println("csv file written!")

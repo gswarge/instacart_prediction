@@ -34,12 +34,17 @@ object instacartMain extends Serializable{
     
     //step 4: Generate ItemItemMatrix
     val itemMatrixDf = objItemMatrix.generateItemItemMatrix(processedDf)
-    objDataProcessing.writeToCSV(itemMatrixDf,"data/fullItemItemMatrix.csv")
+    //objDataProcessing.writeToCSV(itemMatrixDf,"data/fullItemItemMatrix.csv")
+    //objDataProcessing.writeToParquet(itemMatrixDf,"data/fullItemMatrix.parquet")
 
-    //Step 5: Normalise generated Matrix
+    //Step 5: Generate UserItemMatrix
+    val userItemMatrixDf = objItemMatrix.generateUserItemMatrix(processedDf)
+    //objDataProcessing.writeToParquet(itemMatrixDf,"data/fullUserItemMatrix.parquet")
+
+    //Step 6: Normalise generated Matrix
     //val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
-    val normalisedMatrix = objItemMatrix.generateNormalisedMatrix(itemMatrixDf)
-    
+    val normalisedItemMatrix = objItemMatrix.generateNormalisedMatrix(itemMatrixDf)
+    val normalisedUserItemMatrix = objItemMatrix.generateNormalisedMatrix(itemMatrixDf)
 
     //step n: Stop spark session before finishing
     objDataProcessing.spark.stop()

@@ -45,23 +45,58 @@ object objItemMatrix {
         val columnNames = subDf.select("product_id").distinct.map(
                         row => row(0).asInstanceOf[Int]).collect().toSeq
         println("\nColmnNames Length: "+columnNames.length)
-         //setting max values for Pivot, since we have total 50k products
+         //setting max values for Pivot, since we have total 49689 products
         spark.conf.set("spark.sql.pivotMaxValues", columnNames.length)
 
-        val itemMatrixDf = subDf.drop("user_id")
+        val output = subDf.drop("user_id")
                 .withColumnRenamed("product_id","product_id_left")
                 .as("df1")
                 .join(subDf.as("df2"),$"df1.order_id" === $"df2.order_id")
                 .withColumn("ones",lit(1))
                 .withColumnRenamed("product_id","product_id_right")
                 .drop("order_id","user_id")
-                .groupBy("product_id_left")
+                
+        println("preprocessing before pivoting")
+        output.show(10)
+        val itemMatrixDf = output.groupBy("product_id_left")
                 .pivot("product_id_right",columnNames)
                 .count()
                 .na.fill(0)
 
         println("\nMatrix Generated")
         itemMatrixDf
+    }
+
+    def generateUserItemMatrix(inputDf: DataFrame) : DataFrame = {
+        /*
+          Generate a userItemMatrix from dataframe and calculate similarties between each rows (ie users) using cosine similarity
+         
+        */
+        println("\n**** Attempt to generate userItem Matrix **** \n")
+        inputDf.show(5)
+        println("\nSelecting only required columns: user_id, product_id, order_id...")
+        val subDf = inputDf.select("user_id","product_id", "order_id")
+        subDf.show(10)
+
+        val columnNames = subDf.select("product_id").distinct.map(
+                        row => row(0).asInstanceOf[Int]).collect().toSeq
+        
+        spark.conf.set("spark.sql.pivotMaxValues", columnNames.length)
+
+        val output = subDf.withColumn("ones",lit(1))
+                .drop("order_id")
+
+        println("Prepossed before Pivoting")
+        output.show(15)
+        
+        val userItemMatrixDf = output.groupBy("user_id")
+                                .pivot("product_id",columnNames)
+                                .count()
+                                .na.fill(0)
+       
+        println("User Item Matrix generated")
+
+        userItemMatrixDf
     }
 
     def generateNormalisedMatrix(inputDf: DataFrame): DataFrame ={
@@ -154,45 +189,4 @@ object objItemMatrix {
 
     }
 
-    def generateUserItemMatrix(filteredDf: DataFrame) = {
-        /*
-          Generate a userItemMatrix from dataframe and calculate similarties between each rows (ie users) using cosine similarity
-         
-        */
-        println("\n**** Attempt to generate userItem Matrix & calculating cosine similarities **** \n")
-       
-        val userItemDf = filteredDf.groupBy("user_id").pivot("product_id").count()
-        
-        
-        println("\nUserItemMatrix rowLength: "+ userItemDf.count()+" | UserItemMatrix columnLength: " + userItemDf.columns.size)
-        val userItemDf2 = userItemDf.na.fill(0)
-        //DataProcessing.writeToCSV(userItemDf,"data/userItemDf.csv")
-       
-        val columnNames = userItemDf.columns.drop(1)//dropping user_id as column
-        //println("\ncolumn length: "+columnNames.length+" Column Names:\n"+columnNames.toSeq)
-        println("Assembling Vectors")
-        val assembler = new VectorAssembler()
-            .setInputCols(columnNames)
-            .setOutputCol("productsPurchased")
-        
-        val output = assembler.transform(userItemDf2)
-        println("\nAll columns combined to a vector column named 'productsPurchased'\n")
-        output.select("user_id","productsPurchased").show(5)
-        println("\nMatrix RowSize: "+output.select("user_id","productsPurchased").count())
-        
-        //val outputRdd = output.select("user_id","productsPurchased").rdd.map{
-            //row => Vectors.dense(row.getAs[Seq[Double]](1).toArray)
-            //row.getAs[Vector](1)
-        val outputRdd = output.select("user_id","productsPurchased").rdd.map{
-            row => Vectors.dense(row.getAs[Seq[Double]](1).toArray)
-            }
-        print("\n RDD size count: "+outputRdd.count())
-        val prodPurchasePerUserRowMatrix = new RowMatrix(outputRdd)
-            //http://spark.apache.org/docs/latest/ml-migration-guides.html
-        // Compute cosine similarity between columns 
-
-        val simsCols = prodPurchasePerUserRowMatrix.columnSimilarities()
-        println("\nNo. of Cols: "+simsCols.numCols()+ "\n No. of Rows: "+ simsCols.numRows())
-        
-    }
 }
