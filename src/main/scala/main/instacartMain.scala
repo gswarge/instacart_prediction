@@ -12,9 +12,12 @@ object instacartMain extends Serializable{
 
   def main(args: Array[String]): Unit = {
 
+    
     println("Initialising main...")
     val filteredDfPath = "data/filteredf.parquet"
     val fullProcessedDfPath = "data/fullOrderProductsDf.parquet"
+    val noOfTestSamples = 5
+    val saveItemSimMatPath = "data/itemSimilarityMatrix.parquet"
   
 /*
     Run first 2 steps only once, it writes out a processed parquet file to be used for createItemMatrixDF()
@@ -30,22 +33,32 @@ object instacartMain extends Serializable{
 
     //Step 3 : Load processed data, by default it'll load the subset of the full dataset
     //use args[0] for commandline paths
-    val processedDf = objDataProcessing.getParquet(fullProcessedDfPath)
+    val processedDf = objDataProcessing.getParquet(filteredDfPath)
     
     //step 4: Generate ItemItemMatrix
-    val itemMatrixDf = objItemMatrix.generateItemItemMatrix(processedDf)
+    //val itemMatrixDf = objItemMatrix.generateItemItemMatrix(processedDf)
+    val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
     //objDataProcessing.writeToCSV(itemMatrixDf,"data/fullItemItemMatrix.csv")
     //objDataProcessing.writeToParquet(itemMatrixDf,"data/fullItemMatrix.parquet")
 
     //Step 5: Generate UserItemMatrix
-    val userItemMatrixDf = objItemMatrix.generateUserItemMatrix(processedDf)
+    //val userItemMatrixDf = objItemMatrix.generateUserItemMatrix(processedDf)
     //objDataProcessing.writeToParquet(itemMatrixDf,"data/fullUserItemMatrix.parquet")
 
-    //Step 6: Normalise generated Matrix
-    //val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
-    val normalisedItemMatrix = objItemMatrix.generateNormalisedMatrix(itemMatrixDf)
-    val normalisedUserItemMatrix = objItemMatrix.generateNormalisedMatrix(itemMatrixDf)
+    //Using Spark's ALS algorithm
+    //val userItemMatridDf = objItemMatrix.userItemMatrixAls(processedDf)
 
+    
+    //Step 6: Normalise generated Matrix
+    //val normalisedItemMatrix = objItemMatrix.generateNormalisedMatrix(itemMatrixDf)
+    //val normalisedUserItemMatrix = objItemMatrix.generateNormalisedMatrix(userItemMatridDf)
+    
+    //Step 7: Generate Similarties using Cosine Similarities
+    
+    val similarityMatrix = objCosineSimilarity. generateCosineSimilarity(itemMatrixDf,saveItemSimMatPath)
+
+    val testItems = processedDf.sample(true, 0.1).limit(noOfTestSamples).toDF()
+    objTestPredictions.predictSimilarItems(testItems.select("product_id"),similarityMatrix)
     //step n: Stop spark session before finishing
     objDataProcessing.spark.stop()
 

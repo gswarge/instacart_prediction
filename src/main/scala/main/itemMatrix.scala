@@ -20,6 +20,7 @@ import org.apache.spark.mllib.recommendation.Rating
 
 
 
+
 object objItemMatrix {
     println("In ItemMatrix")
     val spark = SparkSession
@@ -154,7 +155,7 @@ object objItemMatrix {
         userItemDf.show(25)
         val purchases = userItemDf.rdd.map( 
             row => Rating(row.getAs[Int](0), row.getAs[Int](1), row.getLong(2).toDouble))
-        val rank = 10
+        val rank = 25
         val numIterations = 10
         val model = ALS.train(purchases, rank, numIterations, 0.01)
         
@@ -164,7 +165,7 @@ object objItemMatrix {
             case Rating(user, product, purchaseCount) => (user, product)
         }
 
-        println("\nUser Products:\n"+usersProducts.top(5))
+        println("\nUser Products:\n"+usersProducts.top(10))
 
         val predictions = model.predict(usersProducts).map { 
             case Rating(user, product, purchaseCount) =>
@@ -176,7 +177,7 @@ object objItemMatrix {
             case Rating(user, product, purchaseCount) =>((user, product), purchaseCount)
         }.join(predictions)
         
-        println("\nRates &  Predictions:\n"+ratesAndPreds.top(5))
+        println("\nRates &  Predictions:\n"+ratesAndPreds.top(10))
 
         val MSE = ratesAndPreds.map { 
             case ((user, product), (r1, r2)) => 
@@ -186,6 +187,22 @@ object objItemMatrix {
        
         println(s"\nMean Squared Error = $MSE\n")
         //Mean Squared Error = 0.6048095711284814
+        //Mean Squared Error = 3.8308691544774995 for full dataset
+
+        // Save and load model
+        model.save(spark.sparkContext, "model/myALSModel")
+        /*
+        // Generate top 10 movie recommendations for each user
+        val userRecs = model.recommendForAllUsers(10)
+        // Generate top 10 user recommendations for each movie
+        val movieRecs = model.recommendForAllItems(10)
+        // Generate top 10 movie recommendations for a specified set of users
+        val users = ratings.select(als.getUserCol).distinct().limit(3)
+        val userSubsetRecs = model.recommendForUserSubset(users, 10)
+        // Generate top 10 user recommendations for a specified set of movies
+        val movies = ratings.select(als.getItemCol).distinct().limit(3)
+        val movieSubSetRecs = model.recommendForItemSubset(movies, 10)
+        */
 
     }
 

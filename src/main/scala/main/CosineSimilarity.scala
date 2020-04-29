@@ -1,4 +1,17 @@
 package main
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.mllib.linalg.{Vectors => OldVectors}
+import org.apache.spark.ml.linalg.{Vectors => NewVectors}
+import org.apache.spark.mllib.linalg.distributed.RowMatrix
+import org.apache.spark.mllib.linalg.distributed.CoordinateMatrix
+import org.apache.spark.mllib.linalg.DenseVector
+import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.mllib.linalg.distributed.IndexedRowMatrix
+import org.apache.spark.mllib.linalg.distributed.IndexedRow
+import org.apache.spark.ml.feature.LabeledPoint
+import org.apache.spark.mllib.linalg.distributed.MatrixEntry
+import etl.objDataProcessing
+
 
 /*
     Scala Object for calculating Cosine Similarity
@@ -11,6 +24,48 @@ object objCosineSimilarity {
         * 0.9925 would be 99.25% similar
         * (x dot y)/||X|| ||Y||
    */
+    val spark = SparkSession
+        .builder()
+        .appName("Instacart Prediction Project")
+        .config("spark.master", "local[*]")
+        .getOrCreate()
+    import spark.implicits._
+    val sqlContext = spark.sqlContext
+
+    def generateCosineSimilarity(inputDf: DataFrame,savePath:String): DataFrame = {
+
+        println("\nGenerating Cosine Similarities...")
+        val columnNames = inputDf.columns
+        val assembler = new VectorAssembler()
+            .setInputCols(columnNames)
+            .setOutputCol("features")
+            
+        val output = assembler.transform(inputDf)
+
+        output.select("product_id_left","features").show(5)
+        val rowMat = output.select("features").rdd.map(
+            _.getAs[org.apache.spark.ml.linalg.Vector](0)).map(
+                org.apache.spark.mllib.linalg.Vectors.fromML)
+
+        val matrix = new RowMatrix(rowMat)
+
+        val similaritiesMatrix = matrix.columnSimilarities()
+        
+        objDataProcessing.saveSimMatrix(savePath,similaritiesMatrix)
+
+        //println("Pairwise similarities are: " +   similaritiesMatrix.entries.collect.mkString(", "))
+        println(similaritiesMatrix.entries.first())
+
+        val transformedRDD = similaritiesMatrix.entries.map(
+             x => (x.i,x.j,x.value)
+            )
+
+        val similaritiesDf = sqlContext.createDataFrame(transformedRDD).toDF("product_id_left", "product_id_right", "similarity")
+        
+        println(similaritiesDf.show(10))
+        similaritiesDf
+    }
+
     def calculateCosineSimilarity(x: Array[Int], y:Array[Int]): Double = {
         require(x.size == y.size)
         dotProduct(x,y)/(magnitude(x) * magnitude(y))

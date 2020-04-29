@@ -168,4 +168,9 @@ object objDataProcessing {
             file => okFileExtensions.exists(file.getName.endsWith(_))
         }
     }
+
+    def saveSimMatrix(savePath: String, sim: CoordinateMatrix): Unit = {
+    sim.entries.map(x=>x.i+"|"+x.j+"|"+x.value).coalesce(1).saveAsTextFile(savePath)
+
+  }
 }
