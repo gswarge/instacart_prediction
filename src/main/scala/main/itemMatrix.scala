@@ -68,9 +68,11 @@ object objItemMatrix {
         itemMatrixDf
     }
 
+    
+
     def generateUserItemMatrix(inputDf: DataFrame) : DataFrame = {
         /*
-          Generate a userItemMatrix from dataframe and calculate similarties between each rows (ie users) using cosine similarity
+          Generate a userItemMatrix from dataframe 
          
         */
         println("\n**** Attempt to generate userItem Matrix **** \n")
@@ -122,29 +124,7 @@ object objItemMatrix {
         l1NormData
     }
     
-    def generateItemItem(inputDf: DataFrame): DataFrame = {
-
-        val filteredDf = inputDf.sample(true, 0.1)
-
-        val dfOriginal = filteredDf.withColumnRenamed(
-            "user_id", "user_id_1").withColumnRenamed(
-            "product_id", "product_id_1").withColumnRenamed(
-            "order_id", "order_id_1")
-
-        val dfMirror = filteredDf.withColumnRenamed(
-            "user_id", "user_id_2").withColumnRenamed(
-            "product_id", "product_id_2").withColumnRenamed(
-            "order_id", "order_id_2")
-
-        val dfBasketJoin = dfOriginal.join(
-            dfMirror, 
-            dfOriginal("user_id_1") === dfMirror("user_id_2") && dfOriginal("order_id_1") === dfMirror("order_id_2"), 
-            "left_outer").withColumn(
-            "ones", lit(1))
-
-        dfBasketJoin
-
-    }
+    
 
     def userItemMatrixAls(filteredDF: DataFrame) = {
         /*

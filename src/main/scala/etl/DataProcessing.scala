@@ -5,6 +5,8 @@ import shapeless.Data
 import spire.std.`package`.string
 import java.io.File
 import spire.syntax.`package`.order
+import org.apache.spark.mllib.linalg.distributed.CoordinateMatrix
+
 
 
 object objDataProcessing {
@@ -170,7 +172,7 @@ object objDataProcessing {
     }
 
     def saveSimMatrix(savePath: String, sim: CoordinateMatrix): Unit = {
-    sim.entries.map(x=>x.i+"|"+x.j+"|"+x.value).coalesce(1).saveAsTextFile(savePath)
+        sim.entries.map(x=>x.i+"|"+x.j+"|"+x.value).coalesce(1).saveAsTextFile(savePath)
 
   }
 }
