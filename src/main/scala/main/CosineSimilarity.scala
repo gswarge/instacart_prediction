@@ -81,18 +81,18 @@ object objCosineSimilarity {
 
     def generateCosineSimilartyWithoutMatrix(inputDf: DataFrame): DataFrame = {
 
-        val filteredDf = inputDf.select("user_id","product_id","order_id","product_name")
+        val filteredDf = inputDf
+                        .select("user_id","product_id")
+                        .withColumn("ones",lit(1))
 
-        val numerator = filteredDf.select("user_id","product_id")
-                    .withColumn("ones",lit(1))
+        val numerator = filteredDf
                     .withColumnRenamed("product_id","product_id_left")
                     .withColumnRenamed("user_id","user_id_left")
                     .as("df1")
                     .join(
-                        filteredDf.select("user_id","product_id")
+                        filteredDf
                         .withColumnRenamed("product_id","product_id_right")
                         .withColumnRenamed("user_id","user_id_right")
-                        .withColumn("ones",lit(1))
                         .as("df2"))
                     .where($"df1.user_id_left" === $"df2.user_id_right")
                     .groupBy("product_id_left","product_id_right")
@@ -101,8 +101,7 @@ object objCosineSimilarity {
         println("Numerator: ")
         numerator.show(5)
 
-        val norms = filteredDf.select("user_id","product_id")
-                    .withColumn("ones",lit(1))
+        val norms = filteredDf
                     .groupBy("product_id")
                     .agg(sqrt(sum($"ones" * $"ones")).alias("norm"))
 
@@ -115,16 +114,20 @@ object objCosineSimilarity {
                 .join(
                     norms
                     .withColumnRenamed("product_id", "product_id_l")
-                    .alias("this_norm"))
+                    .alias("this_norm"),
+                    $"this_norm.product_id_l" === $"product_id_left")
                 .join(
                     norms
                     .withColumnRenamed("product_id", "product_id_r")
-                    .alias("other_norm"))
+                    .alias("other_norm"),
+                    $"other_norm.product_id_r" === $"product_id_right")
+                    
                 .select($"product_id_l", $"product_id_r", cosine)
 
         println("Similarities:")
         similaritiesDf.show(25)
 
+        /*
         val dfOriginal = filteredDf.withColumnRenamed(
             "user_id", "user_id_1").withColumnRenamed(
             "product_id", "product_id_1").withColumnRenamed(
@@ -140,7 +143,7 @@ object objCosineSimilarity {
             dfOriginal("user_id_1") === dfMirror("user_id_2") && dfOriginal("order_id_1") === dfMirror("order_id_2"), 
             "left_outer").withColumn(
             "ones", lit(1))
-        
+        */
         println("generated similarities")
         similaritiesDf
 
