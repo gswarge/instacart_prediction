@@ -21,12 +21,6 @@ import shapeless.record
 */
 object objCosineSimilarity {
 
-    /*
-        * This method takes 2 equal length arrays of integers 
-        * It returns a double representing similarity of the 2 arrays
-        * 0.9925 would be 99.25% similar
-        * (x dot y)/||X|| ||Y||
-   */
     val spark = SparkSession
         .builder()
         .appName("Instacart Prediction Project")
@@ -67,25 +61,30 @@ object objCosineSimilarity {
         simMat
     }
 
-    def generateCosineSimilartyWithoutMatrix(inputDf: DataFrame): DataFrame = {
-
     //========================================================================
-    //Ver 1, Method 1: Works, ideally this to be used, works without needing to pivot, hence saving the computations but i think my cosine implementation is wrong
+    //Ver 1, Method 1: Works, ideally this to be used, works without needing to pivot, hence saving the computations 
+    //but i think my cosine implementation is wrong, im getting values more than 2
+    //// (x dot y)/||X|| ||Y||
+
+    def generateCosineSimilartyWithoutMatrix(inputDf: DataFrame, savePath:String): DataFrame = {
 
         val filteredDf = inputDf
-                        .select("user_id","product_id")
+                        .select("user_id","product_id","order_id")
                         .withColumn("ones",lit(1))
 
         val numerator = filteredDf
                     .withColumnRenamed("product_id","product_id_left")
                     .withColumnRenamed("user_id","user_id_left")
+                    .withColumnRenamed("order_id","order_id_left")
                     .as("df1")
                     .join(
                         filteredDf
                         .withColumnRenamed("product_id","product_id_right")
                         .withColumnRenamed("user_id","user_id_right")
+                        .withColumnRenamed("order_id","order_id_right")
                         .as("df2"))
-                    .where($"df1.user_id_left" === $"df2.user_id_right")
+                    .where($"df1.user_id_left" === $"df2.user_id_right" && 
+                    $"df1.order_id_left" === $"df2.order_id_right"  )
                     .groupBy("product_id_left","product_id_right")
                     .agg(sum($"df1.ones" * $"df2.ones").alias("dot"))
 
@@ -104,38 +103,20 @@ object objCosineSimilarity {
         val similaritiesDf = numerator
                 .join(
                     norms
-                    .withColumnRenamed("product_id", "product_id_l")
                     .alias("this_norm"),
-                    $"this_norm.product_id_l" === $"product_id_left")
+                    $"this_norm.product_id" === $"product_id_left")
                 .join(
                     norms
-                    .withColumnRenamed("product_id", "product_id_r")
                     .alias("other_norm"),
-                    $"other_norm.product_id_r" === $"product_id_right")
-                    
-                .select($"product_id_l", $"product_id_r", cosine)
+                    $"other_norm.product_id" === $"product_id_right")
+                .select($"product_id_left", $"product_id_right", cosine)
 
         println("Similarities:")
         similaritiesDf.show(25)
+        similaritiesDf.filter("cosine_similarity > 1").show(25)
 
-        /*
-        val dfOriginal = filteredDf.withColumnRenamed(
-            "user_id", "user_id_1").withColumnRenamed(
-            "product_id", "product_id_1").withColumnRenamed(
-            "order_id", "order_id_1")
-
-        val dfMirror = filteredDf.withColumnRenamed(
-            "user_id", "user_id_2").withColumnRenamed(
-            "product_id", "product_id_2").withColumnRenamed(
-            "order_id", "order_id_2")
-
-        val dfBasketJoin = dfOriginal.join(
-            dfMirror, 
-            dfOriginal("user_id_1") === dfMirror("user_id_2") && dfOriginal("order_id_1") === dfMirror("order_id_2"), 
-            "left_outer").withColumn(
-            "ones", lit(1))
-        */
         println("generated similarities")
+        //objDataProcessing.saveSimMatrix(savePath,similaritiesDf.toCoordinateMatrix())
         similaritiesDf
 
     }
@@ -194,8 +175,12 @@ object objCosineSimilarity {
         similaritiesDf
     }
 
-    
-
+   /*
+        * This method takes 2 equal length arrays of integers 
+        * It returns a double representing similarity of the 2 arrays
+        * 0.9925 would be 99.25% similar
+        * (x dot y)/||X|| ||Y||
+   */
    
     def calculateCosineSimilarity(x: Array[Int], y:Array[Int]): Double = {
         require(x.size == y.size)
@@ -219,18 +204,19 @@ object objCosineSimilarity {
         math.sqrt(x map (i => i*i) sum)
 
     }
-/*
-    import pyspark.sql.functions as func
+    //========================================================================
+    //How would i implement this in Python?  
+      /*
+        import pyspark.sql.functions as func
 
-    def cosine_similarity(df, col1, col2):
-        df_cosine = df.select(func.sum(df[col1] * df[col2]).alias('dot'), 
-                          func.sqrt(func.sum(df[col1]**2)).alias('norm1'), 
-                          func.sqrt(func.sum(df[col2] **2)).alias('norm2'))
-        d = df_cosine.rdd.collect()[0].asDict()
-    return d['dot']/(d['norm1'] * d['norm2'])
+        def cosine_similarity(df, col1, col2):
+            df_cosine = df.select(func.sum(df[col1] * df[col2]).alias('dot'), 
+                            func.sqrt(func.sum(df[col1]**2)).alias('norm1'), 
+                            func.sqrt(func.sum(df[col2] **2)).alias('norm2'))
+            d = df_cosine.rdd.collect()[0].asDict()
+        return d['dot']/(d['norm1'] * d['norm2'])
 
-    cosine_similarity(df, 'a', 'b') # output 0.989949
+        cosine_similarity(df, 'a', 'b') # output 0.989949
 
-*/
-    
+    */
 }
