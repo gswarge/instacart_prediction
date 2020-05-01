@@ -28,12 +28,72 @@ object objCosineSimilarity {
         .getOrCreate()
     import spark.implicits._
     val sqlContext = spark.sqlContext
+    //========================================================================
+    //Ver 1, Method 1: THIS METHOD WORKS, AMAZING , USE THIS METHOD,
+    // NO NEED TO PIVOT TO CREATE MATRIX, AS THIS WORKS ON SELFJOIN
+    //// (x dot y)/||X|| ||Y||
 
+    def generateCosineSimilartyWithoutMatrix(inputDf: DataFrame, savePath:String): DataFrame = {
 
-    def generateCosineSimilartyVer2 (inputMatrixDf: DataFrame,savePath:String): IndexedRowMatrix = {
+        val filteredDf = inputDf
+                        .select("user_id","product_id","order_id")
+                        .withColumn("ones",lit(1))
+
+        val numerator = filteredDf
+                    .withColumnRenamed("product_id","product_id_left")
+                    .withColumnRenamed("user_id","user_id_left")
+                    .withColumnRenamed("order_id","order_id_left")
+                    .as("df1")
+                    .join(
+                        filteredDf
+                        .withColumnRenamed("product_id","product_id_right")
+                        .withColumnRenamed("user_id","user_id_right")
+                        .withColumnRenamed("order_id","order_id_right")
+                        .as("df2"))
+                    .where($"df1.user_id_left" === $"df2.user_id_right" && 
+                    $"df1.order_id_left" === $"df2.order_id_right"  )
+                    .groupBy("product_id_left","product_id_right")
+                    .agg(sum($"df1.ones" * $"df2.ones").alias("dot"))
+
+        //println("Numerator: ")
+        //numerator.show(5)
+
+        val norms = filteredDf
+                    .groupBy("product_id")
+                    .agg(sqrt(sum($"ones" * $"ones")).alias("norm"))
+
+        //println("Norms: ")
+        //norms.show(5)
+        
+        val cosine = ($"dot" / ($"this_norm.norm" * $"other_norm.norm")).as("cosine_similarity") 
+
+        val similaritiesDf = numerator
+                .join(
+                    norms
+                    .alias("this_norm"),
+                    $"this_norm.product_id" === $"product_id_left")
+                .join(
+                    norms
+                    .alias("other_norm"),
+                    $"other_norm.product_id" === $"product_id_right")
+                .select($"product_id_left", $"product_id_right", cosine)
+
+        println("Similarities:")
+        similaritiesDf.show(25)
+        //similaritiesDf.filter("cosine_similarity > 1").show(25)
+
+        //println("generated similarities")
+        //objDataProcessing.writeToCSV(similaritiesDf,"data/productSimilarities.csv")
+        objDataProcessing.writeToParquet(similaritiesDf,"data/productSimilarities.parquet")
+        similaritiesDf
+
+    }
          //========================================================================
-        //Ver 2: Method 1: Using IndexedRowMatrix, without using VectorAssembler
-        //Still cannot maintain product_id's as index, 
+        //Ver 2: Method 1: Using IndexedRowMatrix, without using VectorAssembler, this method works but i lose index of product id's,
+        //though this method needs input as Matrix, which means pivot needs to work on full dataset
+ 
+    def generateCosineSimilartyVer2 (inputMatrixDf: DataFrame,savePath:String): IndexedRowMatrix = {
+
         println(inputMatrixDf.select(array(inputMatrixDf.columns.tail.map(col): _*)))
         
         val simMat = new IndexedRowMatrix(inputMatrixDf
@@ -62,65 +122,7 @@ object objCosineSimilarity {
     }
 
     //========================================================================
-    //Ver 1, Method 1: Works, ideally this to be used, works without needing to pivot, hence saving the computations 
-    //but i think my cosine implementation is wrong, im getting values more than 2
-    //// (x dot y)/||X|| ||Y||
-
-    def generateCosineSimilartyWithoutMatrix(inputDf: DataFrame, savePath:String): DataFrame = {
-
-        val filteredDf = inputDf
-                        .select("user_id","product_id","order_id")
-                        .withColumn("ones",lit(1))
-
-        val numerator = filteredDf
-                    .withColumnRenamed("product_id","product_id_left")
-                    .withColumnRenamed("user_id","user_id_left")
-                    .withColumnRenamed("order_id","order_id_left")
-                    .as("df1")
-                    .join(
-                        filteredDf
-                        .withColumnRenamed("product_id","product_id_right")
-                        .withColumnRenamed("user_id","user_id_right")
-                        .withColumnRenamed("order_id","order_id_right")
-                        .as("df2"))
-                    .where($"df1.user_id_left" === $"df2.user_id_right" && 
-                    $"df1.order_id_left" === $"df2.order_id_right"  )
-                    .groupBy("product_id_left","product_id_right")
-                    .agg(sum($"df1.ones" * $"df2.ones").alias("dot"))
-
-        println("Numerator: ")
-        numerator.show(5)
-
-        val norms = filteredDf
-                    .groupBy("product_id")
-                    .agg(sqrt(sum($"ones" * $"ones")).alias("norm"))
-
-        println("Norms: ")
-        norms.show(5)
-        
-        val cosine = ($"dot" / ($"this_norm.norm" * $"other_norm.norm")).as("cosine_similarity") 
-
-        val similaritiesDf = numerator
-                .join(
-                    norms
-                    .alias("this_norm"),
-                    $"this_norm.product_id" === $"product_id_left")
-                .join(
-                    norms
-                    .alias("other_norm"),
-                    $"other_norm.product_id" === $"product_id_right")
-                .select($"product_id_left", $"product_id_right", cosine)
-
-        println("Similarities:")
-        similaritiesDf.show(25)
-        similaritiesDf.filter("cosine_similarity > 1").show(25)
-
-        println("generated similarities")
-        //objDataProcessing.saveSimMatrix(savePath,similaritiesDf.toCoordinateMatrix())
-        similaritiesDf
-
-    }
-
+    //Ver 1: Method 1: Trying to use custom cosine similarity function on the features column : Didnt work yet
     def generateCosineSimilarity(inputDf: DataFrame,savePath:String): DataFrame = {
 
         println("\nGenerating Cosine Similarities...")
@@ -131,9 +133,7 @@ object objCosineSimilarity {
             .setOutputCol("features")
             
         val output = assembler.transform(inputDf)
-    
-    //========================================================================
-    //Ver 1: Method 1: Trying to use custom cosine similarity function on the features column : Didnt work yet
+
         output.select("product_id_left","features").show(5)
 
         val customSimMatrix = output.as("a")
