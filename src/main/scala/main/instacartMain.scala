@@ -41,7 +41,7 @@ object instacartMain extends Serializable{
     //step 4: Generate ItemItemMatrix
     //val itemMatrixDf = objItemMatrix.generateItemItemMatrix(processedDf)
     //or
-    //val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
+    val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
     
     //========================================================================
     //Step 5: Generate UserItemMatrix
@@ -59,7 +59,7 @@ object instacartMain extends Serializable{
     //========================================================================
     //Step 7: Generate Similarties using Cosine Similarities
     //val similarityMatrix = objCosineSimilarity.generateCosineSimilarity(itemMatrixDf,saveItemSimMatPath)
-    val similarityDf = objCosineSimilarity.generateCosineSimilartyWithoutMatrix(processedDf)
+    val similarityDf = objCosineSimilarity.generateCosineSimilartyVer2(itemMatrixDf,saveItemSimMatPath)
     //========================================================================
     //step 8: test predictions using generated similarities
     //val testItems = processedDf.sample(true, 0.1).limit(noOfTestSamples).toDF()

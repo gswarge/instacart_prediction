@@ -1,6 +1,7 @@
 package main
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.mllib.linalg.{Vectors => OldVectors}
+
 import org.apache.spark.ml.linalg.{Vectors => NewVectors}
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.mllib.linalg.distributed.CoordinateMatrix
@@ -12,6 +13,7 @@ import org.apache.spark.ml.feature.LabeledPoint
 import org.apache.spark.mllib.linalg.distributed.MatrixEntry
 import etl.objDataProcessing
 import org.apache.spark.sql.functions._
+import shapeless.record
 
 
 /*
@@ -33,53 +35,42 @@ object objCosineSimilarity {
     import spark.implicits._
     val sqlContext = spark.sqlContext
 
-    def generateCosineSimilarity(inputDf: DataFrame,savePath:String): DataFrame = {
 
-        println("\nGenerating Cosine Similarities...")
-        val columnNames = inputDf.columns
-        val assembler = new VectorAssembler()
-            .setInputCols(columnNames)
-            .setOutputCol("features")
-            
-        val output = assembler.transform(inputDf)
-
-        output.select("product_id_left","features").show(5)
-
-        val customSimMatrix = output.as("a")
-                    .crossJoin(output.as("b"))
-                    .where($"a.product_id_left" <= $"b.product_id_left")
-
+    def generateCosineSimilartyVer2 (inputMatrixDf: DataFrame,savePath:String): IndexedRowMatrix = {
+         //========================================================================
+        //Ver 2: Method 1: Using IndexedRowMatrix, without using VectorAssembler
+        //Still cannot maintain product_id's as index, 
+        println(inputMatrixDf.select(array(inputMatrixDf.columns.tail.map(col): _*)))
         
-                    customSimMatrix.select("product_id_left","product_id_right","features")
-        //val features = customSimMatrix.select(collect_list("features")).first().getList[Double](0)
-        //calculateCosineSimilarity($"a.(collect_list(features)).first().getList[Double](0)",$"b.(collect_list(features)).first().getList[Double](0)")
-        //customSimMatrix.withColumn("similarities",calculateCosineSimilarity(customSimMatrix.select("features"), customSimMatrix("features")))
-
-        val rowMat = output.select("features").rdd.map(
-            _.getAs[org.apache.spark.ml.linalg.Vector](0)).map(
-                org.apache.spark.mllib.linalg.Vectors.fromML)
-
-        val matrix = new RowMatrix(rowMat)
-
-        val similaritiesMatrix = matrix.columnSimilarities()
+        val simMat = new IndexedRowMatrix(inputMatrixDf
+                    .select(array(inputMatrixDf.columns.tail.map(col): _*))
+                    .rdd
+                    .zipWithIndex
+                    .map {
+                        case (row, idx) => 
+                        new IndexedRow(idx, OldVectors.dense(
+                                (row.getSeq[Int](0).toArray)
+                                .map(_.asInstanceOf[Int].toDouble)
+                                )
+                        )
+                    })
+                    //(for (i <- 0 to row.size) yeild row.getInt(i).toDouble).toArray
+                    //row.getSeq[Double](0).toArray
+                    //getSeq[Double]
+        simMat.toCoordinateMatrix.transpose
+                    .toIndexedRowMatrix.columnSimilarities
+                    .toBlockMatrix.toLocalMatrix
         
-        objDataProcessing.saveSimMatrix(savePath,similaritiesMatrix)
+        //Save the Matrix in TextFile
+        //objDataProcessing.saveSimMatrix(savePath,simMat.toCoordinateMatrix())
 
-        //println("Pairwise similarities are: " +   similaritiesMatrix.entries.collect.mkString(", "))
-        //println(customSimMatrix.entries.first())
-
-        val transformedRDD = similaritiesMatrix.entries.map(
-             x => (x.i,x.j,x.value)
-            )
-
-        val similaritiesDf = sqlContext.createDataFrame(transformedRDD).toDF("product_id_left", "product_id_right", "similarity")
-        
-        println("Similarities Matrix:")
-        customSimMatrix.show(10)
-        customSimMatrix
+        simMat
     }
 
     def generateCosineSimilartyWithoutMatrix(inputDf: DataFrame): DataFrame = {
+
+    //========================================================================
+    //Ver 1, Method 1: Works, ideally this to be used, works without needing to pivot, hence saving the computations but i think my cosine implementation is wrong
 
         val filteredDf = inputDf
                         .select("user_id","product_id")
@@ -149,6 +140,63 @@ object objCosineSimilarity {
 
     }
 
+    def generateCosineSimilarity(inputDf: DataFrame,savePath:String): DataFrame = {
+
+        println("\nGenerating Cosine Similarities...")
+
+        val columnNames = inputDf.columns
+        val assembler = new VectorAssembler()
+            .setInputCols(columnNames)
+            .setOutputCol("features")
+            
+        val output = assembler.transform(inputDf)
+    
+    //========================================================================
+    //Ver 1: Method 1: Trying to use custom cosine similarity function on the features column : Didnt work yet
+        output.select("product_id_left","features").show(5)
+
+        val customSimMatrix = output.as("a")
+                    .crossJoin(output.as("b"))
+                    .where($"a.product_id_left" === $"b.product_id_left")
+
+        
+        customSimMatrix.select("product_id_left","product_id_right","features")
+        //val features = customSimMatrix.select(collect_list("features")).first().getList[Double](0)
+        //calculateCosineSimilarity($"a.(collect_list(features)).first().getList[Double](0)",$"b.(collect_list(features)).first().getList[Double](0)")
+        //customSimMatrix.withColumn("similarities",calculateCosineSimilarity(customSimMatrix.select("features"), customSimMatrix("features")))
+
+        println("Similarities Matrix:")
+        customSimMatrix.show(10)
+
+    //========================================================================
+    //Ver 1, Method 2: Using Row Matrix , works but i lose the index values 
+
+        val rowMat = output.select("features").rdd.map(
+            _.getAs[org.apache.spark.ml.linalg.Vector](0)).map(
+                org.apache.spark.mllib.linalg.Vectors.fromML)
+
+        val matrix = new RowMatrix(rowMat)
+
+        val similaritiesMatrix = matrix.columnSimilarities()
+        
+        objDataProcessing.saveSimMatrix(savePath,similaritiesMatrix)
+
+        //println("Pairwise similarities are: " +   similaritiesMatrix.entries.collect.mkString(", "))
+        //println(customSimMatrix.entries.first())
+
+        val transformedRDD = similaritiesMatrix.entries.map(
+             x => (x.i,x.j,x.value)
+            )
+
+        val similaritiesDf = sqlContext.createDataFrame(transformedRDD).toDF("product_id_left", "product_id_right", "similarity")
+        
+        
+        similaritiesDf
+    }
+
+    
+
+   
     def calculateCosineSimilarity(x: Array[Int], y:Array[Int]): Double = {
         require(x.size == y.size)
         dotProduct(x,y)/(magnitude(x) * magnitude(y))

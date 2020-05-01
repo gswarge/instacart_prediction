@@ -63,6 +63,7 @@ object objItemMatrix {
                 .pivot("product_id_right",columnNames)
                 .count()
                 .na.fill(0)
+                .orderBy("product_id_left")
 
         println("\nMatrix Generated")
         itemMatrixDf
