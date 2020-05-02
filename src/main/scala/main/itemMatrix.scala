@@ -63,6 +63,15 @@ object ItemMatrixFunc {
             "left_outer").withColumn(
             "ones", lit(1))
         
+        val dfBasketJoin = dfOriginal.join(
+            dfMirror, 
+            dfOriginal("order_id_1") === dfMirror("order_id_2"), 
+            "left_outer").withColumn(
+            "ones", lit(1))
+        
+        val ii1 = dfBasketJoin.select("user_id_1", "user_id_2", "product_id_1", "product_id_2", "order_id_1", "order_id_2", "ones")
+        val ii2 = ii1.filter(col("product_id_1") =!= col("product_id_2"))
+        
         dfBasketJoin
 
     }
