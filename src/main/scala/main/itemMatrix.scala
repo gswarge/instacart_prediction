@@ -8,7 +8,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.fpm.FPGrowth
 import org.apache.spark.ml.feature.Normalizer
 import org.apache.spark.mllib.linalg.{Vector,Vectors}
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
@@ -16,7 +15,7 @@ import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.mllib.recommendation.ALS
 import org.apache.spark.mllib.recommendation.MatrixFactorizationModel
 import org.apache.spark.mllib.recommendation.Rating
-
+import _root_.shapeless.ops.tuple
 
 
 
@@ -30,13 +29,19 @@ object objItemMatrix {
         .getOrCreate()
     import spark.implicits._
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
- 
+    val sqlContext = spark.sqlContext
+
+//==================================================================================================================
+//Method to generate a Item-Item Matrix by pivoting the dataframe 
 
     def generateItemItemMatrix(inputDf: DataFrame): DataFrame = {
         println("\nChecking Processed DataSet: ")
         inputDf.show(5)
         println("\nSelecting only required columns: user_id, product_id, order_id...")
         val subDf = inputDf.select("user_id","product_id", "order_id")
+        val filteredDf = inputDf
+                        .select("user_id","product_id","order_id")
+                        .withColumn("ones",lit(1))
         
         subDf.show(10)
         //println("\nDataset RowCount: "+subDf.count)
@@ -70,6 +75,8 @@ object objItemMatrix {
     }
 
     
+//==================================================================================================================
+//Method to generate a User-Item Matrix by pivoting the dataframe 
 
     def generateUserItemMatrix(inputDf: DataFrame) : DataFrame = {
         /*
@@ -103,6 +110,8 @@ object objItemMatrix {
         userItemMatrixDf
     }
 
+    //==================================================================================================================
+    //This method normalises the matrix using Normalizer from the ml library
     def generateNormalisedMatrix(inputDf: DataFrame): DataFrame ={
 
         println("\nGenerting Normalised matrix, \n\nStep1: Assembling feature columns as Vectors")
@@ -125,7 +134,8 @@ object objItemMatrix {
         l1NormData
     }
     
-    
+    //==================================================================================================================
+    //this method uses the inbuild Alternate Least Squares algorithm to generate the similarities & predictions.
 
     def userItemMatrixAls(filteredDF: DataFrame) = {
         /*
@@ -172,18 +182,6 @@ object objItemMatrix {
 
         // Save and load model
         model.save(spark.sparkContext, "model/myALSModel")
-        /*
-        // Generate top 10 movie recommendations for each user
-        val userRecs = model.recommendForAllUsers(10)
-        // Generate top 10 user recommendations for each movie
-        val movieRecs = model.recommendForAllItems(10)
-        // Generate top 10 movie recommendations for a specified set of users
-        val users = ratings.select(als.getUserCol).distinct().limit(3)
-        val userSubsetRecs = model.recommendForUserSubset(users, 10)
-        // Generate top 10 user recommendations for a specified set of movies
-        val movies = ratings.select(als.getItemCol).distinct().limit(3)
-        val movieSubSetRecs = model.recommendForItemSubset(movies, 10)
-        */
 
     }
 

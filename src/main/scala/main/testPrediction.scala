@@ -26,9 +26,10 @@ object objTestPredictions {
         println("\nInput Test Dataframe Length: "+testDf.count())
         testDf.show(10)
         val singleSample = testDf.limit(1)       
-        //val finalDF = df1.alias("df1").join(df2.alias("df2"), key).drop(df2(key))
+
         val sampleSimilarities = similarityDf.alias("similarityDf")
-                            .join(singleSample.alias("singleSample"),col("similarityDf.product_id_right") === col("singleSample.product_id"),"inner")
+                            .join(singleSample.alias("singleSample"),
+                            col("similarityDf.product_id_right") === col("singleSample.product_id"),"inner")
                             .drop(col("singleSample.product_id"))
                             .sort($"cosine_similarity".desc)
            
