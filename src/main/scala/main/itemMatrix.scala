@@ -55,7 +55,7 @@ def generateCooccurances(inputDf: DataFrame,savePath:String): Tuple2[DataFrame,C
     val cooccuranceMat = new CoordinateMatrix(temp)
 
     println(cooccuranceMat.numCols(),cooccuranceMat.numRows())
-    cooccuranceDf.where($"product_id_left" =!= $"product_id_right").sort($"cooccurances".desc).show(50,false)
+    cooccuranceDf.where($"product_id_left" =!= $"product_id_right").sort($"cooccurances".desc).show(10,false)
     //objDataProcessing.writeToCSV(cooccuranceDf,savePath)
     (cooccuranceDf,cooccuranceMat)
 }

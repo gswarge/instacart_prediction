@@ -19,7 +19,7 @@ object objTestPredictions {
     
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
-    def predictSimilarItems(testDf:DataFrame, similarityDf:DataFrame ) = {
+    def generateSimilarItems(testDf:DataFrame, similarityDf:DataFrame ) = {
 
         println("\nSimilarities Dataframe: ")
         similarityDf.show(10)

@@ -84,12 +84,13 @@ object instacartMain extends Serializable{
     
   //========================================================================
     //Step: train ALS algorithm on cooccurance Matrix
-    objModels.applyItemItemALS(cooccuranceDf)
+    //objModels.applyItemItemALS(cooccuranceDf)
 
+    objModels.applySVD(cooccuranceMat)
     //========================================================================
-    //step 8: test predictions using generated similarities
+    //step 8: Check for Similar Items, using generated similarities
     //val testItems = processedDf.sample(true, 0.1).limit(noOfTestSamples).toDF()
-    //objTestPredictions.predictSimilarItems(testItems.select("product_id","product_name"),similarityDf)
+    //objTestPredictions.generateSimilarItems(testItems.select("product_id","product_name"),similarityDf)
     
     //========================================================================
     //step n: Stop spark session before finishing

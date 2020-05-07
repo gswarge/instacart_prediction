@@ -30,9 +30,10 @@ object objModels {
         inputDf.show(5)
         val ratings = filteredDf.rdd.map( 
             row => Rating(row.getAs[Int](0), row.getAs[Int](1), row.getLong(2).toDouble))
+        // rank is the number of features to use (also referred to as the number of latent factors).
         val rank = 25
         val numIterations = 10
-        val alsModel = ALS.train(ratings, rank, numIterations, 0.01)
+        val alsModel = ALS.train(ratings, rank, numIterations, 0.18)
         
         println("\nModel Ranks:\n"+alsModel.rank)
 
@@ -67,6 +68,30 @@ object objModels {
 
         // Save and load model
         //alsModel.save(spark.sparkContext, "model/alsModel")
+
+    }
+
+    def applySVD(cooccuranceMat:CoordinateMatrix) = {   
+        
+        val m = cooccuranceMat.numRows()
+        val n = cooccuranceMat.numCols()
+        // Convert it to an IndexRowMatrix whose rows are sparse vectors.
+        val mat = cooccuranceMat.toIndexedRowMatrix()
+
+        // Compute the top 5 singular values and corresponding singular vectors.
+        val svd: SingularValueDecomposition[IndexedRowMatrix, Matrix] = mat.computeSVD(25, computeU = true)
+        val U: IndexedRowMatrix = svd.U  // The U factor is a RowMatrix.
+        val s: Vector = svd.s     // The singular values are stored in a local dense vector.
+        val V: Matrix = svd.V     // The V factor is a local dense matrix.
+        svd.s.toArray.zipWithIndex.foreach { case (x, y) =>
+        println(s"Singular value #$y = $x") }
+
+        val maxRank = Seq(mat.numCols(), mat.numRows()).min
+        val total = svd.s.toArray.map(x => x * x).reduce(_ + _)
+        val worstLeft = svd.s.toArray.last * svd.s.toArray.last * (maxRank - svd.s.size)
+        val variabilityGrasped = 100 * total / (total + worstLeft)
+
+        println(s"Worst case variability grasped: $variabilityGrasped%")
 
     }
 }
