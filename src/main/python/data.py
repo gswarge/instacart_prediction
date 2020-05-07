@@ -44,5 +44,6 @@ def convertColumn(df, names, newType):
      df = df.withColumn(name, df[name].cast(newType))
   return df 
 
-if __name__ == '__main__':
-    main()
+def loadCSV(filePath):
+    df = SPARK.read.csv(filePath,inferSchema=True,header=True)
+    return df 

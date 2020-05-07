@@ -10,7 +10,6 @@ import org.apache.spark.mllib.linalg.distributed.CoordinateMatrix
 
 
 object objDataProcessing {
-    println("In DataProcessing")
     
     val spark = SparkSession
         .builder()

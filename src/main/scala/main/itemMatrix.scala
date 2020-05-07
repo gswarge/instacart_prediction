@@ -7,21 +7,13 @@ import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
-import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.feature.Normalizer
-import org.apache.spark.mllib.linalg.{Vector,Vectors}
-import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
-import org.apache.spark.mllib.linalg.distributed.RowMatrix
-import org.apache.spark.mllib.recommendation.ALS
-import org.apache.spark.mllib.recommendation.MatrixFactorizationModel
-import org.apache.spark.mllib.recommendation.Rating
-import _root_.shapeless.ops.tuple
-
-
+import org.apache.spark.ml.feature._
+import org.apache.spark.mllib.linalg._
+import org.apache.spark.mllib.linalg.distributed._
+import org.apache.spark.mllib.recommendation._
 
 
 object objItemMatrix {
-    println("In ItemMatrix")
     val spark = SparkSession
         .builder()
         .appName("Instacart Prediction Project")
@@ -30,6 +22,45 @@ object objItemMatrix {
     import spark.implicits._
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
     val sqlContext = spark.sqlContext
+
+//==================================================================================================================
+//Method to generate a Item-Item Matrix by using distribute matrix dataframes
+
+def generateCooccurances(inputDf: DataFrame,savePath:String): Tuple2[DataFrame,CoordinateMatrix] = {
+    val filteredDf = inputDf
+                    .select("user_id","product_id","order_id","product_name")
+                    .withColumn("ones",lit(1))
+
+    val cooccuranceDf = filteredDf
+                .withColumnRenamed("product_id","product_id_left")
+                .withColumnRenamed("product_name","product_name_left")
+                .as("df1")
+                .join(
+                    filteredDf
+                    .withColumnRenamed("product_id","product_id_right")
+                    .withColumnRenamed("product_name","product_name_right")
+                    .as("df2"))
+                .where($"df1.user_id" === $"df2.user_id" && 
+                $"df1.order_id" === $"df2.order_id")
+                .groupBy("product_id_left","product_id_right","product_name_left","product_name_right")
+                .agg(sum($"df1.ones").alias("cooccurances"))
+                                     
+   val temp = cooccuranceDf.select("product_id_left","product_id_right","cooccurances")
+            .rdd.map{
+                row => MatrixEntry(row(0).asInstanceOf[Int],row(1).asInstanceOf[Int],row.getLong(2).toDouble)
+            }
+        
+        println("Mapped to MatrixEntry")    
+        println(temp.count())
+    val cooccuranceMat = new CoordinateMatrix(temp)
+
+    println(cooccuranceMat.numCols(),cooccuranceMat.numRows())
+    cooccuranceDf.where($"product_id_left" =!= $"product_id_right").sort($"cooccurances".desc).show(50,false)
+    //objDataProcessing.writeToCSV(cooccuranceDf,savePath)
+    (cooccuranceDf,cooccuranceMat)
+}
+
+
 
 //==================================================================================================================
 //Method to generate a Item-Item Matrix by pivoting the dataframe 
@@ -134,55 +165,5 @@ object objItemMatrix {
         l1NormData
     }
     
-    //==================================================================================================================
-    //this method uses the inbuild Alternate Least Squares algorithm to generate the similarities & predictions.
-
-    def userItemMatrixAls(filteredDF: DataFrame) = {
-        /*
-            Using default Alternate Least Squares method provided in Spark
-        */
-        val userItemDf = filteredDF.groupBy("user_id","product_id").count()
-        userItemDf.printSchema()
-        userItemDf.show(25)
-        val purchases = userItemDf.rdd.map( 
-            row => Rating(row.getAs[Int](0), row.getAs[Int](1), row.getLong(2).toDouble))
-        val rank = 25
-        val numIterations = 10
-        val model = ALS.train(purchases, rank, numIterations, 0.01)
-        
-        println("\nModel Ranks:\n"+model.rank)
-        // Evaluate the model on purchase counts
-        val usersProducts = purchases.map { 
-            case Rating(user, product, purchaseCount) => (user, product)
-        }
-
-        println("\nUser Products:\n"+usersProducts.top(10))
-
-        val predictions = model.predict(usersProducts).map { 
-            case Rating(user, product, purchaseCount) =>
-            ((user, product), purchaseCount)
-        }
-        println("\nPredictions:\n"+predictions.top(5))
-
-        val ratesAndPreds = purchases.map { 
-            case Rating(user, product, purchaseCount) =>((user, product), purchaseCount)
-        }.join(predictions)
-        
-        println("\nRates &  Predictions:\n"+ratesAndPreds.top(10))
-
-        val MSE = ratesAndPreds.map { 
-            case ((user, product), (r1, r2)) => 
-            val err = (r1 - r2) 
-            err * err
-        }.mean()
-       
-        println(s"\nMean Squared Error = $MSE\n")
-        //Mean Squared Error = 0.6048095711284814
-        //Mean Squared Error = 3.8308691544774995 for full dataset
-
-        // Save and load model
-        model.save(spark.sparkContext, "model/myALSModel")
-
-    }
 
 }
