@@ -24,7 +24,7 @@ object objItemMatrix {
     val sqlContext = spark.sqlContext
 
 //==================================================================================================================
-//Method to generate a Item-Item Matrix by using distribute matrix dataframes
+//Method to generate a Item-Item Cooccurances
 
 def generateCooccurances(inputDf: DataFrame,savePath:String): Tuple2[DataFrame,CoordinateMatrix] = {
     val filteredDf = inputDf
@@ -54,7 +54,7 @@ def generateCooccurances(inputDf: DataFrame,savePath:String): Tuple2[DataFrame,C
         println(temp.count())
     val cooccuranceMat = new CoordinateMatrix(temp)
 
-    println(cooccuranceMat.numCols(),cooccuranceMat.numRows())
+    println(s"CoOrdinate Matrix Dimensions: $cooccuranceMat.numCols(),$cooccuranceMat.numRows()")
     cooccuranceDf.where($"product_id_left" =!= $"product_id_right").sort($"cooccurances".desc).show(10,false)
     //objDataProcessing.writeToCSV(cooccuranceDf,savePath)
     (cooccuranceDf,cooccuranceMat)
@@ -88,7 +88,9 @@ def generateCooccurances(inputDf: DataFrame,savePath:String): Tuple2[DataFrame,C
         val output = subDf.drop("user_id")
                 .withColumnRenamed("product_id","product_id_left")
                 .as("df1")
-                .join(subDf.as("df2"),$"df1.order_id" === $"df2.order_id")
+                .join(
+                    subDf.as("df2"),
+                    $"df1.order_id" === $"df2.order_id" && $"df1.user_id" === $"df2.user_id")
                 .withColumn("ones",lit(1))
                 .withColumnRenamed("product_id","product_id_right")
                 .drop("order_id","user_id")
@@ -110,13 +112,8 @@ def generateCooccurances(inputDf: DataFrame,savePath:String): Tuple2[DataFrame,C
 //Method to generate a User-Item Matrix by pivoting the dataframe 
 
     def generateUserItemMatrix(inputDf: DataFrame) : DataFrame = {
-        /*
-          Generate a userItemMatrix from dataframe 
-         
-        */
-        println("\n**** Attempt to generate userItem Matrix **** \n")
+        
         inputDf.show(5)
-        println("\nSelecting only required columns: user_id, product_id, order_id...")
         val subDf = inputDf.select("user_id","product_id", "order_id")
         subDf.show(10)
 

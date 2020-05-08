@@ -52,45 +52,36 @@ object instacartMain extends Serializable{
     //use args[0] for commandline paths
     //val processedDf = objDataProcessing.getParquet(filteredDfPath)
     val processedDf = objDataProcessing.getParquet(filteredDfPath)
-  
-    //========================================================================
-    //step 4: Generate ItemItemMatrix
-    //val itemMatrixDf = objItemMatrix.generateItemItemMatrix(processedDf)
-    //or
-    //val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
+    //generate testSamples
+    val testItemsDf = processedDf.sample(true, 0.1).limit(noOfTestSamples).toDF()
     
     //========================================================================
-    //Step 5: Generate UserItemMatrix
-    //val userItemMatrixDf = objItemMatrix.generateUserItemMatrix(processedDf)
-    //objDataProcessing.writeToParquet(itemMatrixDf,"data/fullUserItemMatrix.parquet")
-
-    //Using Spark's ALS algorithm
-    //val userItemMatridDf = objItemMatrix.userItemMatrixAls(processedDf)
-
-    //========================================================================
-    //Step 6: Normalise generated Matrix
-    //val normalisedItemMatrix = objItemMatrix.generateNormalisedMatrix(itemMatrixDf)
-    //val normalisedUserItemMatrix = objItemMatrix.generateNormalisedMatrix(userItemMatridDf)
-    
-    //========================================================================
-    //Step 7: Generate Similarties BETWEEN PRODUCTS using Cosine Similarities
-    //Similarities based on correlation of purchases.
-    //SIMILARITIES GENERATED, TOOK 15MINS, total 47 Mins to generate similarities and save as CSV
-
-    //val similarityDf = objCosineSimilarity.generateCosineSimilartyWithoutMatrix(processedDf,saveItemSimMatPath)
+    //generate Cooccurances
     val (cooccuranceDf,cooccuranceMat) = objItemMatrix.generateCooccurances(processedDf,filteredDfCooccurances)
-    //Reading already generated similarity ratings
-    //val similarityDf = objDataProcessing.readCSV(similarityDfCsvPath)
+
+  //========================================================================
+  //Decompose the cooccurance matrix using SVD 
+    objModels.applySVD(cooccuranceMat,testItemsDf)
     
   //========================================================================
     //Step: train ALS algorithm on cooccurance Matrix
-    //objModels.applyItemItemALS(cooccuranceDf)
+    objModels.applyItemItemALS(cooccuranceDf,testItemsDf)
 
-    objModels.applySVD(cooccuranceMat)
+
+
+
     //========================================================================
-    //step 8: Check for Similar Items, using generated similarities
-    //val testItems = processedDf.sample(true, 0.1).limit(noOfTestSamples).toDF()
-    //objTestPredictions.generateSimilarItems(testItems.select("product_id","product_name"),similarityDf)
+    //Step : Generate Similarties BETWEEN PRODUCTS using Cosine Similarities
+    //Similarities based on correlation of purchases.
+    //SIMILARITIES GENERATED,took, total 47 Mins to generate similarities and save as CSV
+    //val similarityDf = objCosineSimilarity.generateCosineSimilartyWithoutMatrix(processedDf,saveItemSimMatPath)
+
+    //Reading already generated similarity ratings
+    //val similarityDf = objDataProcessing.readCSV(similarityDfCsvPath)
+
+    //========================================================================
+    //step : Check for Similar Items, using generated similarities
+    //objTestPredictions.generateSimilarItems(testItemsDf.select("product_id","product_name"),similarityDf)
     
     //========================================================================
     //step n: Stop spark session before finishing

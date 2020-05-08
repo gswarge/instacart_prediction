@@ -53,32 +53,31 @@ object objCosineSimilarity {
         //println("Numerator: ")
         //numerator.show(5)
 
-        val norms = filteredDf
+        val magnitude = filteredDf
                     .groupBy("product_id")
                     .agg(sqrt(sum($"ones" * $"ones")).alias("norm"))
 
         //println("Norms: ")
         //norms.show(5)
         
-        val cosine = ($"dot" / ($"this_norm.norm" * $"other_norm.norm")).as("cosine_similarity") 
+        val cosine = ($"dot" / ($"magnitudeX.norm" * $"magnitudeY.norm")).as("cosine_similarity") 
 
         val similaritiesDf = numerator
                 .join(
-                    norms
-                    .alias("this_norm"),
-                    $"this_norm.product_id" === $"product_id_left")
+                    magnitude
+                    .alias("magnitudeX"),
+                    $"magnitudeX.product_id" === $"product_id_left")
                 .join(
-                    norms
-                    .alias("other_norm"),
-                    $"other_norm.product_id" === $"product_id_right")
+                    magnitude
+                    .alias("magnitudeY"),
+                    $"magnitudeY.product_id" === $"product_id_right")
                 .select($"product_id_left", $"product_id_right", cosine)
 
         println("Similarities:")
         similaritiesDf.show(25)
         //similaritiesDf.filter("cosine_similarity > 1").show(25)
-
         //objDataProcessing.writeToCSV(similaritiesDf,"data/productSimilarities.csv")
-        objDataProcessing.writeToParquet(similaritiesDf,"data/productSimilarities.parquet")
+        //objDataProcessing.writeToParquet(similaritiesDf,"data/productSimilarities.parquet")
         similaritiesDf
 
     }

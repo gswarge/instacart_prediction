@@ -123,4 +123,29 @@ object objUnusedCode {
         cosine_similarity(df, 'a', 'b') # output 0.989949
 
     */
+
+    def mainMethod() ={
+        // Code from Main method 
+
+    //========================================================================
+    //step 4: Generate ItemItemMatrix
+    //val itemMatrixDf = objItemMatrix.generateItemItemMatrix(processedDf)
+    //or
+    //val itemMatrixDf = objDataProcessing.readCSV("data/ItemItemMatrix.csv")
+    
+    //========================================================================
+    //Step 5: Generate UserItemMatrix
+    //val userItemMatrixDf = objItemMatrix.generateUserItemMatrix(processedDf)
+    //objDataProcessing.writeToParquet(itemMatrixDf,"data/fullUserItemMatrix.parquet")
+
+    //Using Spark's ALS algorithm
+    //val userItemMatridDf = objItemMatrix.userItemMatrixAls(processedDf)
+
+    //========================================================================
+    //Step 6: Normalise generated Matrix
+    //val normalisedItemMatrix = objItemMatrix.generateNormalisedMatrix(itemMatrixDf)
+    //val normalisedUserItemMatrix = objItemMatrix.generateNormalisedMatrix(userItemMatridDf)
+    
+    
+    }
 }

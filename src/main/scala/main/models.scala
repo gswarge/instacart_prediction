@@ -25,7 +25,7 @@ object objModels {
     //==================================================================================================================
     //this method uses the inbuild Alternate Least Squares algorithm to generate the similarities & predictions.
 
-    def applyItemItemALS(inputDf: DataFrame) = {
+    def applyItemItemALS(inputDf: DataFrame,testItemsDf:DataFrame) = {
         val filteredDf = inputDf.select("product_id_left","product_id_right","cooccurances")
         inputDf.show(5)
         val ratings = filteredDf.rdd.map( 
@@ -38,15 +38,15 @@ object objModels {
         println("\nModel Ranks:\n"+alsModel.rank)
 
         // Evaluate the model on purchase counts
-        val usersProducts = ratings.map { 
-            case Rating(user, product, purchaseCount) => (user, product)
+        val itemProducts = ratings.map { 
+            case Rating(item, product, purchaseCount) => (item, product)
         }
 
-        println("\nUser Products:\n"+usersProducts.take(5).toSeq)
+        println("\nUser Products:\n"+itemProducts.take(5).toSeq)
 
-        val predictions = alsModel.predict(usersProducts).map { 
-            case Rating(user, product, purchaseCount) =>
-            ((user, product), purchaseCount)
+        val predictions = alsModel.predict(itemProducts).map { 
+            case Rating(item, product, purchaseCount) =>
+            ((item, product), purchaseCount)
         }
         println("\nPredictions:\n"+predictions.take(5).toSeq)
 
@@ -71,20 +71,20 @@ object objModels {
 
     }
 
-    def applySVD(cooccuranceMat:CoordinateMatrix) = {   
+    def applySVD(cooccuranceMat:CoordinateMatrix,testItemsDf:DataFrame) = {   
         
         val m = cooccuranceMat.numRows()
         val n = cooccuranceMat.numCols()
-        // Convert it to an IndexRowMatrix whose rows are sparse vectors.
         val mat = cooccuranceMat.toIndexedRowMatrix()
-
-        // Compute the top 5 singular values and corresponding singular vectors.
-        val svd: SingularValueDecomposition[IndexedRowMatrix, Matrix] = mat.computeSVD(25, computeU = true)
-        val U: IndexedRowMatrix = svd.U  // The U factor is a RowMatrix.
+        
+        // Compute 10 largest singular values and corresponding singular vectors
+        val svd: SingularValueDecomposition[IndexedRowMatrix, Matrix] = mat.computeSVD(10, computeU = true)
+        val U: IndexedRowMatrix = svd.U  // The U factor is a IndexedRowMatrix.
         val s: Vector = svd.s     // The singular values are stored in a local dense vector.
         val V: Matrix = svd.V     // The V factor is a local dense matrix.
-        svd.s.toArray.zipWithIndex.foreach { case (x, y) =>
-        println(s"Singular value #$y = $x") }
+
+        svd.s.toArray.zipWithIndex.foreach { 
+                case (x, y) => println(s"Singular value #$y = $x") }
 
         val maxRank = Seq(mat.numCols(), mat.numRows()).min
         val total = svd.s.toArray.map(x => x * x).reduce(_ + _)
@@ -92,6 +92,9 @@ object objModels {
         val variabilityGrasped = 100 * total / (total + worstLeft)
 
         println(s"Worst case variability grasped: $variabilityGrasped%")
+
+        println(U)
+        println(V)
 
     }
 }
