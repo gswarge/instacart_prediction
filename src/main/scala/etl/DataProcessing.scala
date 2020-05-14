@@ -150,7 +150,7 @@ object objDataProcessing {
     }
 
     def readCSV(csvPath: String): DataFrame = {
-        println("read csv!")
+        println(s"reading csv file:$csvPath")
         val spark = SparkSession.builder().getOrCreate()
         val csvDf = spark.read.format("csv").option(
             "header", "true").option(

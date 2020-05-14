@@ -32,7 +32,7 @@ object objCosineSimilarity {
     // NO NEED TO PIVOT TO CREATE MATRIX, AS THIS WORKS ON SELFJOIN
     // Implementing Cosine Similarity formula:  (x dot y) / ||X|| ||Y||
 
-    def generateCosineSimilartyWithoutMatrix(inputDf: DataFrame, savePath:String): DataFrame = {
+    def generateCosineSimilarties(inputDf: DataFrame, savePath:String): DataFrame = {
 
         val filteredDf = inputDf
                         .select("user_id","product_id","order_id")
@@ -73,11 +73,13 @@ object objCosineSimilarity {
                     $"magnitudeY.product_id" === $"product_id_right")
                 .select($"product_id_left", $"product_id_right", cosine)
 
-        println("Similarities:")
-        similaritiesDf.show(25)
+                
+        println("Similarities calculated")
+
+        //similaritiesDf.show(25)
         //similaritiesDf.filter("cosine_similarity > 1").show(25)
-        //objDataProcessing.writeToCSV(similaritiesDf,"data/productSimilarities.csv")
-        //objDataProcessing.writeToParquet(similaritiesDf,"data/productSimilarities.parquet")
+        //objDataProcessing.writeToCSV(similaritiesDf,"data/allProductSimilarities.csv")
+        //objDataProcessing.writeToParquet(similaritiesDf,"data/allProductSimilarities.parquet")
         similaritiesDf
 
     }
