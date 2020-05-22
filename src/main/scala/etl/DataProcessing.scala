@@ -159,10 +159,16 @@ object objDataProcessing {
         )
         csvDf
     }
-    def getListOfFiles(dir: String):List[File] = {
-        /*
-            Function to get the list of csv files in the given directory
-        */
+
+    def writeToText(df:DataFrame,savePath:String) = {
+        println(s"writing text file:$savePath")
+        //df.write.text(csvPath)
+        df.rdd.map(x=>x(0)+"|"+x(1)+"|"+x(2)).saveAsTextFile(savePath)
+        println("file written !")
+    }
+
+
+    def getListOfFiles(dir: String):List[File] = {    
         val d = new File(dir)
         val okFileExtensions = List("csv")
         d.listFiles.filter(_.isFile).toList.filter { 

@@ -26,8 +26,6 @@ object instacartMain extends Serializable{
     println("Initialising main...")
     val filteredDfPath = "data/filteredf.parquet"
     val fullProcessedDfPath = "data/fullOrderProductsDf.parquet"
-    val filteredDfCooccurances = "data/filteredDfCooccurances.csv"
-    val fullDfCooccurances = "data/fullDfCooccurances.csv"
     val noOfTestSamples = 50
     val saveItemSimMatPath = "data/itemSimilarityMatrix.txt"
     val similarityDfCsvPath = "data/productSimilarities.csv"
@@ -35,12 +33,8 @@ object instacartMain extends Serializable{
     
   
 /*
-    Run first 2 steps only once, it writes out a processed parquet file to be used for next steps
-
-    pipeline one:
-    -> ingestandProcessData
-    
-*/  
+    Run first 2 steps only once, it writes out a processed parquet file to be used for next step
+*/
     //========================================================================
     // Step 1: Load and merge csv files
     //val processedDf = objDataProcessing.ingestAndProcessData(fullProcessedDfPath)
@@ -67,7 +61,7 @@ object instacartMain extends Serializable{
     //generate Cooccurances
     //val (cooccuranceDf,cooccuranceMat) = objItemMatrix.generateCooccurances(processedDf,filteredDfCooccurances)
     //Read generated Cooccurances Matrix
-    val cooccuranceMat = objDataProcessing.readCSV(fullDfCooccurances)
+    //val cooccuranceMat = objDataProcessing.readCSV(fullDfCooccurances)
 
     //========================================================================
     //Decompose the cooccurance matrix using SVD 
@@ -96,7 +90,7 @@ object instacartMain extends Serializable{
     objTestPredictions.generateSimilarItems(testItemsDf,similarityMat,processedDf,"cosine")
     
     //Step: generate similar items using cooccurance matrix
-    objTestPredictions.generateSimilarItems(testItemsDf,cooccuranceMat,processedDf,"cooccurance")
+    //objTestPredictions.generateSimilarItems(testItemsDf,cooccuranceMat,processedDf,"cooccurance")
 
     //========================================================================
     //step n: Stop spark session before finishing
