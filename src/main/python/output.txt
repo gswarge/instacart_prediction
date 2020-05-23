@@ -1,3 +1,33 @@
+ShowTime!
+
+Results are in!
+Top 3 Similar Items to:  818 
+   product_id_left product_id_right          cosine_sims
+5           48954              818  0.36363636363636365
+6            2139              818  0.32433748657040123
+7           40975              818  0.29848100289785456
+Top 3 Similar Items to:  12321 
+    product_id_left product_id_right          cosine_sims
+14           21140            12321  0.18156825980064073
+17           18622            12321  0.14824986333222026
+21           39268            12321  0.12403473458920847
+Top 3 Similar Items to:  45672 
+    product_id_left product_id_right          cosine_sims
+19           42466            45672  0.13363062095621217
+45           32262            45672  0.06565321642986127
+59           26012            45672  0.05270462766947298
+Top 3 Similar Items to:  567 
+    product_id_left product_id_right           cosine_sims
+43            7282              567   0.06783559614750909
+54           17392              567  0.058576323418841995
+Top 3 Similar Items to:  2891 
+    product_id_left product_id_right          cosine_sims
+33           43982             2891  0.08687444855261386
+37            5209             2891  0.07669649888473704
+50            5200             2891  0.05976143046671968
+--- method 1 run time ():  2.8717875997225444
+--- total run time ():  2.872795565923055
+
 20/05/21 19:23:03
 ShowTime!
 Results are in!

@@ -19,15 +19,13 @@ def main():
     """
     print('ShowTime!')
     #Load query prod_ids and Similarity Matrix
-    filePath = "data/queryProdIds.txt"
+    filePath = "../../../data/queryProdIds.txt"
     with open(filePath,'r') as f:
         queryList = [l.strip() for l in f]
     
-    productsdf = pd.read_csv('data/products.csv')
-    
-    filePath = "data/concatproductSims/allProdSims.txt"
+    filePath = "../../../data/concatproductSims/allProdSims.txt"
     method1_time = time.time()
-    method1(filePath,queryList,productsdf)
+    method1(filePath,queryList)
     print("--- method 1 run time (): ",(time.time()-method1_time)/60)
     #--- method 1 run time ():  4.049646683533987
     
@@ -36,8 +34,11 @@ def main():
     #print("--- method 2 run time ():" , (time.time()-method2_time)/60)
     #--- method 2 run time (): 4.074459417661031
     
-def method1(filePath,queryList,productsdf): 
+def method1(filePath,queryList): 
     records = []
+    productsdf = pd.read_csv('../../../data/products.csv')
+    productsdf = productsdf.astype({'product_id': 'int64','aisle_id': 'int64','department_id': 'int64','product_name':'object'})
+
     with open(filePath,'r') as f:
         for line in f:
             record = line.strip().split('|')
@@ -49,17 +50,21 @@ def method1(filePath,queryList,productsdf):
     print('\nResults are in!')
     df = pd.DataFrame.from_records(records, columns=['product_id_left','product_id_right','cosine_sims'])
     
-    #df = df.astype({'product_id_left': 'int64','product_id_right': 'int64','cosine_sims': 'float64'})
+    df = df.astype({'product_id_left': 'int64','product_id_right': 'int64','cosine_sims': 'float64'})
 
-    #df = df.merge(
-    #        productsdf,
-    #        left_on="product_id_left",right_on="product_id",how="inner",sort=False) \
-    #        .drop('product_id',axis=1)
-    #df.sort_values('cosine_sims')
-    #print(df.shape)
-    #print(df.head(50))
+    df = df.merge(productsdf,
+            left_on="product_id_left",right_on="product_id",how='inner',suffixes=('_left','_right')) \
+            .drop(['product_id','aisle_id','department_id'],axis=1) \
+            .merge(productsdf,
+            left_on="product_id_right",right_on="product_id",how='inner',suffixes=('_left','_right'))\
+            .drop(['product_id','aisle_id','department_id'],axis=1)
+
+    
     for query in queryList:
-        print("Top 3 Similar Items to: ", query, "\n",df[df['product_id_right']== query].sort_values('cosine_sims',ascending=False).head(4)[1:])
+        print("Top 3 Similar Items to: ", query, "\n",df[df['product_id_right']== int(query)].sort_values('cosine_sims',ascending=False).head(4)[1:])
+    
+    #print(df.head(15))
+    print("Adios Amigoes")
 
 
 
