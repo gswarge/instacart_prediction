@@ -1,23 +1,12 @@
-import numpy as np
-import data as d
+
 import pandas as pd
-from collections import namedtuple
 import time
 from datetime import timedelta
-import re
-#from pyspark.sql.functions import col
-#from pyspark.sql.types import *
-#from pyspark import SparkContext
-#from pyspark.sql import SparkSession
 
-# Creating Spark Context
-#SC = SparkContext.getOrCreate()
-#SPARK = SparkSession(SC)
 
 def main(): 
     """[Main Function]
     """
-    print('ShowTime!')
     #Load query prod_ids and Similarity Matrix
     inputBasketFilePath = "../../../data/queryProdIds.txt"
     with open(inputBasketFilePath,'r') as f:
@@ -43,9 +32,9 @@ def main():
     print("--- method 3 run time (): ",d)
     
     
-
+#======================================================
+# Method 3: using a dicts for products and reading only Top 3: Fastest function
 def method3(simMatfilePath,inputBasket):
-    print("Method 3:\n")
     similarProducts = []
     prodDict = {}
     prodFilePath = "../../../data/products.csv"
@@ -55,27 +44,19 @@ def method3(simMatfilePath,inputBasket):
         for line in f:
             record = line.strip().split(',')
             prodDict.update({int(record[0]):str(record[1])})
-    
-    print("got the dicts")
 
     for prod_id in inputBasket:
         i=0
-        print("Searching for prod_id: ", prod_id)
         file = open(simMatfilePath)
         for line in file:
             record = line.strip().split('|')
             if ((int(record[0]) == prod_id) & (i <= 3)):
                 similarProducts.append(record)
                 i+=1
-                print("found ya:", record,prod_id)
-                #print("i: ",i)                    
             if i >= 4:
-                #print("found break: ")
                 file.close()
                 break
                 
-
-    print('\nResults are in!')
     df = pd.DataFrame.from_records(similarProducts, columns=['product_id_left','product_id_right','cosine_sims'])
     
     df = df.astype({'product_id_left': 'int64','product_id_right': 'int64','cosine_sims': 'float64'})
@@ -85,21 +66,10 @@ def method3(simMatfilePath,inputBasket):
 
     for prod_id in inputBasket:
         print("Top 3 Similar Items to: ", prod_id, "\n",df[df['product_id_left']== prod_id].sort_values('cosine_sims',ascending=False)[1:])
-    
-    #print(df.head(15))
-    print("Adios Amigoes")
-        
         
    
-    '''
-    for line in simMat:
-            row = line.strip().split('|')
-            for prod_id in inputBasket:
-                if int(record[1] == prod_id):
-                        similarProducts.append(record)
-                        print (record, line)
-    '''
-    
+#====================================================== 
+# Method 1 
 
 def method1(filePath,queryList): 
     records = []
@@ -134,7 +104,8 @@ def method1(filePath,queryList):
     print("Adios Amigoes")
 
 
-
+#======================================================
+# Method 2
 def method2(filePath,queryList):
     records = []
     file = open(filePath)
