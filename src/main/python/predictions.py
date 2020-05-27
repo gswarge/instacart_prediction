@@ -1,10 +1,10 @@
 import numpy as np
 import data as d
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 from collections import namedtuple
 import time
+from datetime import timedelta
+import re
 #from pyspark.sql.functions import col
 #from pyspark.sql.types import *
 #from pyspark import SparkContext
@@ -19,21 +19,88 @@ def main():
     """
     print('ShowTime!')
     #Load query prod_ids and Similarity Matrix
-    filePath = "../../../data/queryProdIds.txt"
-    with open(filePath,'r') as f:
-        queryList = [l.strip() for l in f]
+    inputBasketFilePath = "../../../data/queryProdIds.txt"
+    with open(inputBasketFilePath,'r') as f:
+        inputBasket = [int(l.strip()) for l in f]
     
-    filePath = "../../../data/concatproductSims/allProdSims.txt"
-    method1_time = time.time()
-    method1(filePath,queryList)
-    print("--- method 1 run time (): ",(time.time()-method1_time)/60)
-    #--- method 1 run time ():  4.049646683533987
+    simMatfilePath = "../../../data/concatproductSims/allProdSims.txt"
+    #======================================================
+    #Method 1
+    #method1_time = time.time()
+    #method1(filePath,inputBasket)
+    #print("--- method 1 run time (): ",(time.time()-method1_time)/60)
     
+    #======================================================
     #method2_time = time.time()
     #method2(filePath, queryList)
     #print("--- method 2 run time ():" , (time.time()-method2_time)/60)
-    #--- method 2 run time (): 4.074459417661031
     
+    #======================================================
+    # Method 3: using a dicts for products
+    method3_time = time.time()
+    method3(simMatfilePath,inputBasket)
+    d = timedelta(seconds=(time.time()-method3_time))
+    print("--- method 3 run time (): ",d)
+    
+    
+
+def method3(simMatfilePath,inputBasket):
+    print("Method 3:\n")
+    similarProducts = []
+    prodDict = {}
+    prodFilePath = "../../../data/products.csv"
+
+    with open(prodFilePath,mode='r') as f:
+        next(f)
+        for line in f:
+            record = line.strip().split(',')
+            prodDict.update({int(record[0]):str(record[1])})
+    
+    print("got the dicts")
+
+    for prod_id in inputBasket:
+        i=0
+        print("Searching for prod_id: ", prod_id)
+        file = open(simMatfilePath)
+        for line in file:
+            record = line.strip().split('|')
+            if ((int(record[0]) == prod_id) & (i <= 3)):
+                similarProducts.append(record)
+                i+=1
+                print("found ya:", record,prod_id)
+                #print("i: ",i)                    
+            if i >= 4:
+                #print("found break: ")
+                file.close()
+                break
+                
+
+    print('\nResults are in!')
+    df = pd.DataFrame.from_records(similarProducts, columns=['product_id_left','product_id_right','cosine_sims'])
+    
+    df = df.astype({'product_id_left': 'int64','product_id_right': 'int64','cosine_sims': 'float64'})
+    
+    df['product_name_left'] = df['product_id_left'].map(prodDict)
+    df['product_name_right'] = df['product_id_right'].map(prodDict)
+
+    for prod_id in inputBasket:
+        print("Top 3 Similar Items to: ", prod_id, "\n",df[df['product_id_left']== prod_id].sort_values('cosine_sims',ascending=False)[1:])
+    
+    #print(df.head(15))
+    print("Adios Amigoes")
+        
+        
+   
+    '''
+    for line in simMat:
+            row = line.strip().split('|')
+            for prod_id in inputBasket:
+                if int(record[1] == prod_id):
+                        similarProducts.append(record)
+                        print (record, line)
+    '''
+    
+
 def method1(filePath,queryList): 
     records = []
     productsdf = pd.read_csv('../../../data/products.csv')
@@ -91,5 +158,6 @@ def method2(filePath,queryList):
 if __name__ == "__main__":
     start_time = time.time()
     main()
-    print("--- total run time (): " , (time.time()-start_time)/60)
+    d = timedelta(seconds=(time.time()-start_time))
+    print("--- total run time (): " , d)
 
