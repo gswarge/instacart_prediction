@@ -25,7 +25,7 @@ object instacartMain extends Serializable{
 
     println("Initialising main...")
     val filteredDfPath = "data/filteredf.parquet"
-    val fullProcessedDfPath = "data/fullOrderProductsDf.parquet"
+    val fullProcessedDfPath = "data/fullOrderProducts.parquet"
     val noOfTestSamples = 50
     val saveItemSimMatPath = "data/itemSimilarityMatrix.txt"
     val similarityDfCsvPath = "data/productSimilarities.csv"
@@ -37,7 +37,7 @@ object instacartMain extends Serializable{
 */
     //========================================================================
     // Step 1: Load and merge csv files
-    //val processedDf = objDataProcessing.ingestAndProcessData(fullProcessedDfPath)
+    val processedDf = objDataProcessing.ingestAndProcessData(fullProcessedDfPath)
 
     //========================================================================
     //step 1.2: Generate a subset of the sample for dev purpose and save subset for dev purposes
@@ -49,10 +49,10 @@ object instacartMain extends Serializable{
     //Step 2 : Load processed data, by default it'll load the subset of the full dataset, dataset of department alcohol
     //use args[0] for commandline paths
     //val processedDf = objDataProcessing.getParquet(filteredDfPath)
-    val processedDf = objDataProcessing.getParquet(fullProcessedDfPath)
+    //val processedDf = objDataProcessing.getParquet(fullProcessedDfPath)
     
     //generate testSamples
-    val testItemsDf = processedDf.sample(false, 0.1).toDF()
+    //val testItemsDf = processedDf.sample(false, 0.1).toDF()
     
     //Read test Samples
     
@@ -78,7 +78,7 @@ object instacartMain extends Serializable{
     //Step : Generate Similarties BETWEEN PRODUCTS using Cosine Similarities
     //Similarities based on correlation of purchases.
     //SIMILARITIES GENERATED,took, total 47 Mins to generate similarities and save as CSV
-    val similarityMat = objCosineSimilarity.generateCosineSimilarties(processedDf,saveItemSimMatPath)
+    //val similarityMat = objCosineSimilarity.generateCosineSimilarties(processedDf,saveItemSimMatPath)
 
     //Reading already generated similarity ratings
     //val similarityMat = objDataProcessing.readCSV(similarityDfCsvPath)
@@ -87,7 +87,7 @@ object instacartMain extends Serializable{
 
     //========================================================================
     //step : generate Similar Items, using Cosine similarities
-    objTestPredictions.generateSimilarItems(testItemsDf,similarityMat,processedDf,"cosine")
+    //objTestPredictions.generateSimilarItems(testItemsDf,similarityMat,processedDf,"cosine")
     
     //Step: generate similar items using cooccurance matrix
     //objTestPredictions.generateSimilarItems(testItemsDf,cooccuranceMat,processedDf,"cooccurance")
