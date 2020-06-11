@@ -33,7 +33,7 @@ object objCosineSimilarity {
     // Implementing Cosine Similarity formula:  (x dot y) / ||X|| ||Y||
 
     def generateCosineSimilarties(inputDf: DataFrame, savePath:String): DataFrame = {
-
+        println("Selecting user_id, order_id, product_id..")
         val filteredDf = inputDf
                         .select("user_id","product_id","order_id")
                         .withColumn("ones",lit(1))
@@ -50,15 +50,15 @@ object objCosineSimilarity {
                     .groupBy("product_id_left","product_id_right")
                     .agg(sum($"df1.ones" * $"df2.ones").alias("dot"))
 
-        //println("Numerator: ")
-        numerator.show(5)
+        println("Numerator calculated... ")
+        //numerator.show(5)
 
         val magnitude = filteredDf
                     .groupBy("product_id")
                     .agg(sqrt(sum($"ones" * $"ones")).alias("norm"))
 
         //println("Norms: ")
-        magnitude.show(10)
+        //magnitude.show(10)
         
         val cosine = ($"dot" / ($"magnitudeX.norm" * $"magnitudeY.norm")).as("cosine_similarity") 
 
@@ -75,12 +75,11 @@ object objCosineSimilarity {
                 .sort($"cosine_similarity".desc)
 
                 
-        println("Similarities calculated")
+        println("Similarities calculated...")
 
         //similaritiesDf.show(25)
         //similaritiesDf.filter("cosine_similarity > 1").show(25)
-        objDataProcessing.writeToParquet(similaritiesDf,"data/allProductSimilarities.parquet")
-        //objDataProcessing.writeToText(similaritiesDf,"data/allProductsSimilarities.txt")
+        objDataProcessing.writeToText(similaritiesDf,"data/processed/allPriorOrdersProductsSimilarities.txt")
         similaritiesDf
 
     }

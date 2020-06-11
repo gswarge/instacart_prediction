@@ -27,35 +27,35 @@ object instacartMain extends Serializable{
     val filteredDfPath = "data/filteredf.parquet"
     val fullProcessedDfPath = "data/fullOrderProducts.parquet"
     val noOfTestSamples = 50
-    val saveItemSimMatPath = "data/itemSimilarityMatrix.txt"
-    val similarityDfCsvPath = "data/productSimilarities.csv"
-    val similarityDfParquetPath = "data/productSimilarities.parquet"
+    val allPriorOrdersCsvPath = "data/processed/allPriorOrderProductsUsers.csv"
+    val saveItemSimMatPath = "data/processed/priorOrdersProdSimilarityMatrix.txt"
+    val similarityDfPath = "data/processed/concatfiles/allPriorOrdersProductsSims.txt"
     
   
 /*
     Run first 2 steps only once, it writes out a processed parquet file to be used for next step
 */
     //========================================================================
-    // Step 1: Load and merge csv files
-    val processedDf = objDataProcessing.ingestAndProcessData(fullProcessedDfPath)
+    // Step 1: Load, merge & split csv files
+    //objDataProcessing.ingestAndProcessData(fullProcessedDfPath)
+    
+    
+    //========================================================================
+    //Step : Generate Similarties BETWEEN PRODUCTS using Cosine Similarities
+    //Similarities based on correlation of purchases.
+    //SIMILARITIES GENERATED,took, total 47 Mins to generate similarities and save as CSV
+    //val priorOrdersOfUsersDf = objDataProcessing.readCSV(allPriorOrdersOfUsersCsvPath)
+    //val similarityMat = objCosineSimilarity.generateCosineSimilarties(priorOrdersOfUsersDf,saveItemSimMatPath)
+
+    //Reading already generated product similarity matrix from prior orders
+    //val similarityMat = objDataProcessing.readCSV(similarityDfPath)
+
 
     //========================================================================
-    //step 1.2: Generate a subset of the sample for dev purpose and save subset for dev purposes
-    
-    //val filteredDf = objDataProcessing.generateDepWiseSample(processedDf)
-    //objDataProcessing.writeToParquet(filteredDf,filteredDfPath)
+    //step : generate Similar Items, using Cosine similarities
+    //objTestPredictions.generateSimilarItems(testItemsDf,similarityMat,processedDf,"cosine")
+    objGeneratePredictions.genSimItemsFromPriorOrders(similarityDfPath,allPriorOrdersCsvPath)
 
-    //========================================================================
-    //Step 2 : Load processed data, by default it'll load the subset of the full dataset, dataset of department alcohol
-    //use args[0] for commandline paths
-    //val processedDf = objDataProcessing.getParquet(filteredDfPath)
-    //val processedDf = objDataProcessing.getParquet(fullProcessedDfPath)
-    
-    //generate testSamples
-    //val testItemsDf = processedDf.sample(false, 0.1).toDF()
-    
-    //Read test Samples
-    
     
     //========================================================================
     //generate Cooccurances
@@ -71,24 +71,6 @@ object instacartMain extends Serializable{
     //Step: train ALS algorithm on cooccurance Matrix
     //objModels.applyItemItemALS(cooccuranceDf,testItemsDf)
 
-
-
-
-    //========================================================================
-    //Step : Generate Similarties BETWEEN PRODUCTS using Cosine Similarities
-    //Similarities based on correlation of purchases.
-    //SIMILARITIES GENERATED,took, total 47 Mins to generate similarities and save as CSV
-    //val similarityMat = objCosineSimilarity.generateCosineSimilarties(processedDf,saveItemSimMatPath)
-
-    //Reading already generated similarity ratings
-    //val similarityMat = objDataProcessing.readCSV(similarityDfCsvPath)
-
-
-
-    //========================================================================
-    //step : generate Similar Items, using Cosine similarities
-    //objTestPredictions.generateSimilarItems(testItemsDf,similarityMat,processedDf,"cosine")
-    
     //Step: generate similar items using cooccurance matrix
     //objTestPredictions.generateSimilarItems(testItemsDf,cooccuranceMat,processedDf,"cooccurance")
 

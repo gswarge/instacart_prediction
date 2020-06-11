@@ -7,9 +7,11 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.Row
 import spire.algebra.CoordinateSpace
 import org.apache.spark.mllib.linalg.distributed.CoordinateMatrix
+import spire.std.int
+import org.apache.spark.sql.types.IntegerType
 
-object objTestPredictions {
-    println("Test Predictions..")
+object objGeneratePredictions {
+
     val spark = SparkSession
         .builder()
         .appName("Instacart Prediction Project")
@@ -18,6 +20,32 @@ object objTestPredictions {
     import spark.implicits._
     
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
+
+
+    def genSimItemsFromPriorOrders(similarityDfPath:String, allPriorOrdersCsvPath:String) = {
+        
+        
+        println("Reading allpriorOrders")
+        val allPriorOrdersDf = objDataProcessing.readCSV(allPriorOrdersCsvPath)
+        // Compute the max age and average salary, grouped by department and gender.
+        //ds.groupBy($"department", $"gender").agg(Map(
+         //               "salary" -> "avg",
+         //               "age" -> "max"
+         //                          ))
+        val maxOrdersPerUser = allPriorOrdersDf
+                            .groupBy("user_id")
+                            .agg(max("order_number").as("noOfOrders"))
+
+        
+        val users2ndLastOrders = allPriorOrdersDf.where($"user_id"=== $"maxOrdersPerUser.user_id" && $"order_number"===(($"maxOrderesPerUser.noOfOrders")-1))
+        users2ndLastOrders.show(20)
+
+        //Reading Similarity Matrix
+        //val similarityMat = objDataProcessing.readCSV(similarityDfPath)
+
+
+        
+    }
 
     def generateSimilarItems(testDf:DataFrame, similarityDf:DataFrame,processedDf:DataFrame,method:String="cosine" ) = {
         

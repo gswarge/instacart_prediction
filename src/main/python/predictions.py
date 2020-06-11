@@ -12,7 +12,7 @@ def main():
     with open(inputBasketFilePath,'r') as f:
         inputBasket = [int(l.strip()) for l in f]
     
-    simMatfilePath = "../../../data/concatproductSims/allProdSims.txt"
+    simMatfilePath = "../../../data/processed/concatfiles/allPriorOrdersProductsSims.txt"
     #======================================================
     #Method 1
     #method1_time = time.time()
@@ -37,7 +37,7 @@ def main():
 def method3(simMatfilePath,inputBasket):
     similarProducts = []
     prodDict = {}
-    prodFilePath = "../../../data/products.csv"
+    prodFilePath = "../../../data/original/products.csv"
 
     with open(prodFilePath,mode='r') as f:
         next(f)
@@ -73,7 +73,7 @@ def method3(simMatfilePath,inputBasket):
 
 def method1(filePath,queryList): 
     records = []
-    productsdf = pd.read_csv('../../../data/products.csv')
+    productsdf = pd.read_csv('../../../data/original/products.csv')
     productsdf = productsdf.astype({'product_id': 'int64','aisle_id': 'int64','department_id': 'int64','product_name':'object'})
 
     with open(filePath,'r') as f:
