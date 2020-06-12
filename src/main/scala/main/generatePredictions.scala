@@ -25,21 +25,51 @@ object objGeneratePredictions {
     def genSimItemsFromPriorOrders(similarityDfPath:String, allPriorOrdersCsvPath:String) = {
         
         
-        println("Reading allpriorOrders")
+        println("\nReading allpriorOrders....")
         val allPriorOrdersDf = objDataProcessing.readCSV(allPriorOrdersCsvPath)
         // Compute the max age and average salary, grouped by department and gender.
         //ds.groupBy($"department", $"gender").agg(Map(
          //               "salary" -> "avg",
          //               "age" -> "max"
          //                          ))
-        val maxOrdersPerUser = allPriorOrdersDf
+        val last2UserOrderNo = allPriorOrdersDf
                             .groupBy("user_id")
-                            .agg(max("order_number").as("noOfOrders"))
-
+                            .agg(max("order_number").as("lastOrder"))
+                            .withColumn("2ndLastOrder",($"lastOrder"-1))
+                            .sort($"user_id".desc)
+                            
+        last2UserOrderNo.show(25)
+        val last2UserOrders = allPriorOrdersDf.alias("po")
+                                .select("po.user_id","po.order_id","po.product_id","po.order_number")
+                                .join(last2UserOrderNo.alias("2nd"),
+                                ($"po.user_id" === $"2nd.user_id" && $"po.order_number" === $"2nd.lastOrder")).drop($"2nd.user_id",$"po.order_number")
         
-        val users2ndLastOrders = allPriorOrdersDf.where($"user_id"=== $"maxOrdersPerUser.user_id" && $"order_number"===(($"maxOrderesPerUser.noOfOrders")-1))
+        last2UserOrders.show(25)
+        println("\nWriting last2UserOrders....\n")
+        objDataProcessing.writeToCSV(last2UserOrders,"data/processed/last2UserOrders.csv")
+        
+        
+        
+        /*
+        val users2ndLastOrderNo = totalOrdersPerUser.withColumn("2ndLastOrder",($"total_orders"-1))
+        users2ndLastOrderNo.show(10)
+        
+        val users2ndLastOrder = allPriorOrdersDf.alias("po")
+                                .select("po.user_id","po.order_id","po.product_id","po.order_number")
+                                .join(users2ndLastOrderNo.alias("2nd"),
+                                $"po.user_id" === $"2nd.user_id")
+                                .drop("2nd.user_id")
+                                
+        
+        users2ndLastOrder.show(20)
+        
+        
+        val users2ndLastOrders = allPriorOrdersDf.where(
+                    $"user_id" === users2ndLastOrderNo("user_id") && 
+                    ($"order_number" === users2ndLastOrderNo("2ndLastOrder"))).select("user_id","order_id","product_id")
+        
         users2ndLastOrders.show(20)
-
+        */
         //Reading Similarity Matrix
         //val similarityMat = objDataProcessing.readCSV(similarityDfPath)
 
