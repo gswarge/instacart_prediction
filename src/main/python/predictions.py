@@ -12,9 +12,9 @@ def main():
     #with open(inputBasketFilePath,'r') as f:
     #    inputBasket = [int(l.strip()) for l in f]
 
-    last2OrdersFilePath  = "../../../data/processed/concatfiles/last2UserOrders.csv"
-    simMatfilePath = "../../../data/processed/concatfiles/allPriorOrdersProductsSims.txt"
-    prodFilePath = "../../../data/original/products.csv"
+    last2OrdersFilePath  = "/Users/apple/MEGA/Personal/My_Projects/DS_Projects/instacart_prediction/data/processed/concatfiles/last2UserOrders.csv"
+    simMatfilePath = "/Users/apple/MEGA/Personal/My_Projects/DS_Projects/instacart_prediction/data/processed/concatfiles/allPriorOrdersProductsSims.txt"
+    prodFilePath = "/Users/apple/MEGA/Personal/My_Projects/DS_Projects/instacart_prediction/data/original/products.csv"
 
     #======================================================
     # extract the Baskets for predictions
@@ -26,7 +26,7 @@ def main():
     #======================================================
     # Method 3: using a dicts for products
     method3_time = time.time()
-    generatePreds(simMatfilePath,inputBaskets,prodFilePath)
+    generatePreds(simMatfilePath,lastOrders,prodFilePath)
     d = timedelta(seconds=(time.time()-method3_time))
     print("--- method 3 run time: ",d)
     
@@ -36,15 +36,20 @@ def extractBaskets(last2OrdersFilePath):
     
     print(last2OrdersFilePath)
     #extracting product_ids of last order for each user
+    
     lastOrders = pd.read_csv(last2OrdersFilePath)
-    print(lastOrders.head(10))
+
+    #there are some rows with values as "product_id", taking those out
+    emptyRows = lastOrders[lastOrders['product_id'] == "product_id"]
+    print(emptyRows)
+    lastOrders = lastOrders.drop(emptyRows.index)
+    
+    #Dropping columns which arent needed for now
     lastOrders.drop(["order_id","order_number","2ndLastOrder","lastOrder"],axis=1,inplace=True)
     print(lastOrders.head(10))
-    
     inputBasket = lastOrders['product_id']
-
+    
     print("\n\nbasket extracted..")
-    print(inputBasket.head(10))
     return inputBasket,lastOrders
     
 
@@ -56,32 +61,43 @@ def generatePreds(simMatfilePath,inputBasket, prodFilePath):
     print("\n\n**** generating predictions****")
     similarProducts = []
     prodDict = {}
-    prodList = inputBasket.values.tolist()
+
+    #inputBasket['product_id'] = inputBasket['product_id'].astype('int64')
     
-    # Creating a dict of product_id and product_name for faster Product_name lookup
-    with open(prodFilePath,mode='r') as f:
-        next(f)
-        for line in f:
-            record = line.strip().split(',')
-            prodDict.update({int(record[0]):str(record[1])})
+    prodList = inputBasket['product_id'].values
+    #userList = inputBasket.user_id.unique()
+    prodList = pd.unique(prodList)
     
     #looking up top 3 similar items for each product in the input basket
+    
+    j=0
     for prod_id in prodList:
         i=0
+        print(j,prod_id,sep=":",end=" | ",flush=True)
         file = open(simMatfilePath)
         for line in file:
             record = line.strip().split('|')
-            if ((int(record[0]) == prod_id) & (i <= 3)):
+            if ((int(record[0]) == int(prod_id)) & (i <= 2)):
+                #print("similar_product",record[1],end=",",sep=":")
                 similarProducts.append(record)
                 i+=1
-            if i >= 4:
+            if i >= 3:
                 file.close()
+                j+=1
                 break
                 
     df = pd.DataFrame.from_records(similarProducts, columns=['product_id_left','product_id_right','cosine_sims'])
     
     df = df.astype({'product_id_left': 'int64','product_id_right': 'int64','cosine_sims': 'float64'})
     
+    # Creating a dict of product_id and product_name for faster Product_name lookup
+    print("\ngenerating prediction for each Product_id:")
+    with open(prodFilePath,mode='r') as f:
+        next(f)
+        for line in f:
+            record = line.strip().split(',')
+            prodDict.update({int(record[0]):str(record[1])})
+
     df['product_name_left'] = df['product_id_left'].map(prodDict)
     df['product_name_right'] = df['product_id_right'].map(prodDict)
 
