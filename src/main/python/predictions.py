@@ -8,44 +8,65 @@ def main():
     """[Main Function]
     """
     #Load query prod_ids and Similarity Matrix
-    inputBasketFilePath = "../../../data/queryProdIds.txt"
-    with open(inputBasketFilePath,'r') as f:
-        inputBasket = [int(l.strip()) for l in f]
-    
+    #inputBasketFilePath = "../../../data/queryProdIds.txt"
+    #with open(inputBasketFilePath,'r') as f:
+    #    inputBasket = [int(l.strip()) for l in f]
+
+    last2OrdersFilePath  = "../../../data/processed/concatfiles/last2UserOrders.csv"
     simMatfilePath = "../../../data/processed/concatfiles/allPriorOrdersProductsSims.txt"
+    prodFilePath = "../../../data/original/products.csv"
+
     #======================================================
-    #Method 1
-    #method1_time = time.time()
-    #method1(filePath,inputBasket)
-    #print("--- method 1 run time (): ",(time.time()-method1_time)/60)
-    
-    #======================================================
-    #method2_time = time.time()
-    #method2(filePath, queryList)
-    #print("--- method 2 run time ():" , (time.time()-method2_time)/60)
+    # extract the Baskets for predictions
+    extractBaskets_time = time.time()
+    inputBaskets,lastOrders = extractBaskets(last2OrdersFilePath)
+    d = timedelta(seconds=(time.time()-extractBaskets_time))
+    print("\n--- extractBaskets run time : ",d)
     
     #======================================================
     # Method 3: using a dicts for products
     method3_time = time.time()
-    method3(simMatfilePath,inputBasket)
+    generatePreds(simMatfilePath,inputBaskets,prodFilePath)
     d = timedelta(seconds=(time.time()-method3_time))
-    print("--- method 3 run time (): ",d)
+    print("--- method 3 run time: ",d)
     
+
+def extractBaskets(last2OrdersFilePath):
+    print("\nExtracting Product baskets for second last orders (i.e last order from prior orders dataset)... \n")
     
+    print(last2OrdersFilePath)
+    #extracting product_ids of last order for each user
+    lastOrders = pd.read_csv(last2OrdersFilePath)
+    print(lastOrders.head(10))
+    lastOrders.drop(["order_id","order_number","2ndLastOrder","lastOrder"],axis=1,inplace=True)
+    print(lastOrders.head(10))
+    
+    inputBasket = lastOrders['product_id']
+
+    print("\n\nbasket extracted..")
+    print(inputBasket.head(10))
+    return inputBasket,lastOrders
+    
+
+
+
 #======================================================
-# Method 3: using a dicts for products and reading only Top 3: Fastest function
-def method3(simMatfilePath,inputBasket):
+# Method generatePreds: using a dicts for products and reading only Top 3: Fastest function
+def generatePreds(simMatfilePath,inputBasket, prodFilePath):
+    print("\n\n**** generating predictions****")
     similarProducts = []
     prodDict = {}
-    prodFilePath = "../../../data/original/products.csv"
-
+    prodList = inputBasket.values.tolist()
+    
+    # Creating a dict of product_id and product_name for faster Product_name lookup
     with open(prodFilePath,mode='r') as f:
         next(f)
         for line in f:
             record = line.strip().split(',')
             prodDict.update({int(record[0]):str(record[1])})
-
-    for prod_id in inputBasket:
+    
+    #looking up top 3 similar items for each product in the input basket
+    for prod_id in prodList:
         i=0
         file = open(simMatfilePath)
         for line in file:
@@ -64,8 +85,13 @@ def method3(simMatfilePath,inputBasket):
     df['product_name_left'] = df['product_id_left'].map(prodDict)
     df['product_name_right'] = df['product_id_right'].map(prodDict)
 
-    for prod_id in inputBasket:
-        print("Top 3 Similar Items to: ", prod_id, "\n",df[df['product_id_left']== prod_id].sort_values('cosine_sims',ascending=False)[1:])
+    #for prod_id in inputBasket:
+    #    print("Top 3 Similar Items to: ", prod_id, "\n",df[df#['product_id_left']== prod_id].sort_values('cosine_sims',ascending=False)[1:])
+    print("\n\nPredictions Generated....")
+    df.to_csv("../../../data/processed/generatedPredictions.csv")
+    print("\n\npredictions written to a csv file... ")
+    return df
+       
         
    
 #====================================================== 
@@ -130,5 +156,5 @@ if __name__ == "__main__":
     start_time = time.time()
     main()
     d = timedelta(seconds=(time.time()-start_time))
-    print("--- total run time (): " , d)
+    print("\n\n--- total run time (): " , d)
 
