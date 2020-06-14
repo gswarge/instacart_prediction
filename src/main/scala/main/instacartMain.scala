@@ -54,7 +54,7 @@ object instacartMain extends Serializable{
     //========================================================================
     //step : generate Similar Items, using Cosine similarities
     //objTestPredictions.generateSimilarItems(testItemsDf,similarityMat,processedDf,"cosine")
-    objGeneratePredictions.genSimItemsFromPriorOrders(similarityDfPath,allPriorOrdersCsvPath)
+    objGeneratePredictions.extractLast2Orders(similarityDfPath,allPriorOrdersCsvPath)
 
     
     //========================================================================
