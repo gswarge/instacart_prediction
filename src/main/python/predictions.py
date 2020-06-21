@@ -24,7 +24,7 @@ def pipeline():
     simMatfilePath = "../../../data/processed/concatfiles/allPriorOrdersProductsSims.txt"
     prodFilePath = "../../../data/original/products.csv"
     allTrainOrdersFilePath = "../../../data/processed/concatfiles/allTrainOrders.csv"
-    noOfUsers = 5
+    noOfUsers = 1000
     
 
     #=========================================================================
@@ -146,20 +146,18 @@ def generatePreds(simMatfilePath,inputBasket, prodFilePath,allTrainOrdersFilePat
 def calculate_MAP(df,inputBasket,actualTrainBasket):
     #=========================================================================
     # Calculating mean average precision for each user
-    print("\n*** Calculating MAP ***\n")
+    print("\n*** Calculating MAP For each user ***\n")
     userList = inputBasket['user_id'].unique()
-    print ("\n\nuserList: ",userList)
+    print ("\nuserList: ",userList)
     map = {}
-    print("\n\n****MAP for Each user ****\n")
+
     for userid in userList:
         predicted = df[df['user_id'] == int(userid)]
         actual = actualTrainBasket[actualTrainBasket['user_id'] == int(userid)]
         actualBoughtList = actual['product_id'].values
         predictedBoughtList = predicted['predicted_product'].values
-
-        print("\nInput Boughtlist length:",len(actualBoughtList))
-        print("\nPredicted bought length:",len(predictedBoughtList))
-
+        #print("Input Boughtlist length:",len(actualBoughtList))
+        #print("Predicted bought length:",len(predictedBoughtList))
         map.update({userid:(mean_avg_precision(actualBoughtList,predictedBoughtList,len(predictedBoughtList)))})
 
         print("\nuserid:",userid," | MAP: ",map.get(userid))
