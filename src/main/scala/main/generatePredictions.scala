@@ -22,33 +22,28 @@ object objGeneratePredictions {
     spark.sparkContext.setLogLevel("ERROR") //To avoid warnings
 
 
-    def extractLast2Orders(similarityDfPath:String, allPriorOrdersCsvPath:String) = {
+    def extractLastOrder(similarityDfPath:String, allPriorOrdersCsvPath:String) = {
         
         
         println("\nReading allpriorOrders....")
         val allPriorOrdersDf = objDataProcessing.readCSV(allPriorOrdersCsvPath)
-        // Compute the max age and average salary, grouped by department and gender.
-        //ds.groupBy($"department", $"gender").agg(Map(
-         //               "salary" -> "avg",
-         //               "age" -> "max"
-         //                          ))
-        val last2UserOrderNo = allPriorOrdersDf
+        
+        val lastOrderNo = allPriorOrdersDf
                             .groupBy("user_id")
                             .agg(max("order_number").as("lastOrder"))
-                            .withColumn("2ndLastOrder",($"lastOrder"-1))
                             .sort($"user_id".desc)
                             
-        last2UserOrderNo.show(25)
-        val last2UserOrders = allPriorOrdersDf.alias("po")
+        //lastOrderNo.show(25)
+        val lastUserOrder = allPriorOrdersDf.alias("po")
                                 .select("po.user_id","po.order_id","po.product_id","po.order_number")
-                                .join(last2UserOrderNo.alias("2nd"),
-                                ($"po.user_id" === $"2nd.user_id" && $"po.order_number" === $"2nd.lastOrder")).drop($"2nd.user_id",$"po.order_number")
+                                .join(lastOrderNo.alias("lo"),
+                                ($"po.user_id" === $"lo.user_id" && $"po.order_number" === $"lo.lastOrder"))
+                                .select($"po.user_id",$"po.order_id",$"po.product_id",$"po.order_number")
         
-        last2UserOrders.show(25)
-        println("\nWriting last2UserOrders....\n")
-        objDataProcessing.writeToCSV(last2UserOrders,"data/processed/last2UserOrders.csv")
-
-        
+        //lastUserOrder.show(25)
+        println("\nWriting 2nd lastUserOrder....\n")
+        objDataProcessing.writeToCSV(lastUserOrder,"data/processed/lastUserOrder.csv")
+        println("Last orders from prior orders, extracted")
     }
 
     def generateSimilarItems(testDf:DataFrame, similarityDf:DataFrame,processedDf:DataFrame,method:String="cosine" ) = {
