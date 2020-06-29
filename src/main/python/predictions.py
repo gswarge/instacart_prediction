@@ -148,19 +148,19 @@ def calculate_MAP(df,inputBasket,actualTrainBasket):
     # Calculating mean average precision for each user
     print("\n*** Calculating MAP For each user ***\n")
     userList = inputBasket['user_id'].unique()
-    print ("\nuserList: ",userList)
+    #print ("\nuserList: ",userList)
     map = []
 
     for userid in userList:
+        record =[]
         predicted = df[df['user_id'] == int(userid)]
         actual = actualTrainBasket[actualTrainBasket['user_id'] == int(userid)]
         actualBoughtList = actual['product_id'].values
         predictedBoughtList = predicted['predicted_product'].values
-        #print("Input Boughtlist length:",len(actualBoughtList))
-        #print("Predicted bought length:",len(predictedBoughtList))
-        map.append({userid:(mean_avg_precision(actualBoughtList,predictedBoughtList,len(predictedBoughtList)))})
-
-        print("\nuserid:",userid," | MAP: ",map.get(userid))
+        record.append(userid)
+        record.append(mean_avg_precision(actualBoughtList,predictedBoughtList))
+        map.append(record)
+        print("userid",userid,sep=":", end=" | ")
 
     #=========================================================================
     #Saving our predictions
@@ -168,12 +168,11 @@ def calculate_MAP(df,inputBasket,actualTrainBasket):
     print("\n\nSaving predictions at: ",filename)
     df.to_csv(filename,index=False)
 
-    mapdf = pd.DataFrame.from_dict(map)
-    mapdf = mapdf.transpose
+    mapdf = pd.DataFrame.from_records(map,columns=['userid','MAP'])
+    print(mapdf.head(10))
     filename = "../../../data/processed/MAPScores.csv"
     print("Saving MAP scores at: ",filename)
-    mapdf.to_csv(filename)
-    #print(map, file=open(filename, 'w'))
+    mapdf.to_csv(filename,index=False)
     print("\n\nPredictions saved...")
        
         
