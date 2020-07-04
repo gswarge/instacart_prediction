@@ -1,49 +1,63 @@
 
+import argparse
 import pandas as pd
-pd.set_option('display.max_rows', 500)
-pd.set_option('display.max_columns', 500)
-pd.set_option('display.width', 1000)
 import numpy as np
+import logging
 import time
 import csv
 from datetime import timedelta
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
 
 
-def main():
-    pipeline()
-
-def pipeline(): 
+def main(model_name,mapsavepath,noOfUsers,k): 
     """[Main Function]
     """
-    #Load query prod_ids and Similarity Matrix
-    #inputBasketFilePath = "../../../data/queryProdIds.txt"
-    #with open(inputBasketFilePath,'r') as f:
-    #    inputBasket = [int(l.strip()) for l in f]
-
+    basefilepath = "../../../data/processed/"
     lastPriorOrderFilePath  = "../../../data/processed/concatfiles/lastPriorOrder.csv"
     simMatfilePath = "../../../data/processed/concatfiles/allPriorOrdersProductsSims.txt"
     prodFilePath = "../../../data/original/products.csv"
     allTrainOrdersFilePath = "../../../data/processed/concatfiles/allTrainOrders.csv"
-    noOfUsers = 1000
-    
+    #noOfUsers = 1000
 
     #=========================================================================
-    # extract the Baskets for predictions | Extract for particular user(s)
+    # extract the Baskets for predictions | Extract for particular no of user(s)
     extractBaskets_time = time.time()
     inputBasket = extractBaskets(lastPriorOrderFilePath, allTrainOrdersFilePath,noOfUsers)
     d1 = timedelta(seconds=(time.time()-extractBaskets_time))
     #print("\n\n--- extractBaskets run time : ",d1,"\n")
     
     #=========================================================================
-    # Method generatePreds: generate similar items for the input basket provided
-    method3_time = time.time()
-    df,inputBasket,actualTrainBasket = generatePreds(simMatfilePath,inputBasket,prodFilePath,allTrainOrdersFilePath)
-    d2 = timedelta(seconds=(time.time()-method3_time))
-    #print("\n\n--- generatePreds run time: ",d2,"\n")
+    # Method generatePreds: generate similar items for the input basket provided based on cosine similarity
+    if model_name == "cosine":
+        method3_time = time.time()
+        predictedBasketDf,actualTrainBasket = generatePredsCosine(simMatfilePath,inputBasket,prodFilePath,allTrainOrdersFilePath)
+        d2 = timedelta(seconds=(time.time()-method3_time))
+        #print("\n\n--- generatePreds run time: ",d2,"\n")
+    elif model_name == "random":
+        predictedBasketDf,actualTrainBasket = randomModel(inputBasket,prodFilePath,allTrainOrdersFilePath)
     
+    elif model_name == "baseline":
+        actualTrainBasket = removeHeaderRows(allTrainOrdersFilePath)
+        predictedBasketDf,actualTrainBasket = baselineModel(inputBasket,prodFilePath,actualTrainBasket)
+
+    else:
+        raise NotImplementedError("TODO: model %s" % model_name)
+        
     #=========================================================================
     # calculate Mean average precision for each user in our input Basket List
-    calculate_MAP(df,inputBasket,actualTrainBasket)
+    calculate_MAP(predictedBasketDf,inputBasket,actualTrainBasket,mapsavepath)
+
+def removeHeaderRows(allTrainOrdersFilePath):
+    #=========================================================================
+    #Removing Header rows, since i concatnated csv files from Spark export
+    actualTrainBasket = pd.read_csv(allTrainOrdersFilePath,usecols=['user_id','product_id'])
+    headerRows = actualTrainBasket[actualTrainBasket['product_id'] == "product_id"]
+    actualTrainBasket = actualTrainBasket.drop(headerRows.index, axis=0)
+    #print("dropped header rows")
+    actualTrainBasket = actualTrainBasket.astype({'product_id': 'int64','user_id': 'int64'})
+    return actualTrainBasket
 
 def extractBaskets(lastPriorOrderFilePath, allTrainOrdersFilePath,noOfUsers):
     print("\n\nExtracting Product baskets for second last orders \n(i.e last order from prior orders dataset)... \n")
@@ -53,19 +67,17 @@ def extractBaskets(lastPriorOrderFilePath, allTrainOrdersFilePath,noOfUsers):
     allTrainOrders = pd.read_csv(allTrainOrdersFilePath, usecols=['user_id','product_id'])
 
     #=========================================================================
-    #Removing Header rows, since i concatnated csv files from Spark export
+    #Removing Header rows, since I concatnated csv files from Spark export
     #print("prior order size before dropping header rows", lastPriorOrder.shape)
     headerRows = lastPriorOrder[lastPriorOrder['product_id'] == "product_id"]
     lastPriorOrder = lastPriorOrder.drop(headerRows.index, axis=0)
-    #print("prior order size after dropping header rows", lastPriorOrder.shape)
     
-    #print("train order size before dropping header rows", allTrainOrders.shape)
     headerRows = allTrainOrders[allTrainOrders['product_id'] == "product_id"]
     allTrainOrders = allTrainOrders.drop(headerRows.index, axis=0)
     #print("train order size after dropping header rows", allTrainOrders.shape)
 
     #=========================================================================
-    #extracting basket of 10 random users, while ensuring only pick users who are in Train dataset
+    #extracting basket of random number of users, while ensuring we only pick users who are in the Train dataset
     allTrainUsers = allTrainOrders['user_id'].unique()
     print("prior order size before filtering train users", lastPriorOrder.shape)
     lastPriorOrder = lastPriorOrder[lastPriorOrder['user_id'].isin(allTrainUsers)]
@@ -82,7 +94,7 @@ def extractBaskets(lastPriorOrderFilePath, allTrainOrdersFilePath,noOfUsers):
 
 #=========================================================================
 # Method generatePreds: using a dicts for products and reading only Top 3 similar items
-def generatePreds(simMatfilePath,inputBasket, prodFilePath,allTrainOrdersFilePath):
+def generatePredsCosine(simMatfilePath,inputBasket, prodFilePath,allTrainOrdersFilePath):
     print("\n*** Generating Predictions ***\n\n")
     
     #inputBasket = inputBasket.astype({'product_id': 'int64','user_id': 'int64'})
@@ -123,9 +135,9 @@ def generatePreds(simMatfilePath,inputBasket, prodFilePath,allTrainOrdersFilePat
                 j+=1
                 break
                 
-    df = pd.DataFrame.from_records(similarProducts, columns=['purchased_product','predicted_product','cosine_sims','user_id'])
+    predictedBasketDf = pd.DataFrame.from_records(similarProducts, columns=['purchased_product','predicted_product','cosine_sims','user_id'])
     
-    df = df.astype({'purchased_product': 'int64','predicted_product': 'int64','cosine_sims': 'float64','user_id':'int64'})
+    predictedBasketDf = predictedBasketDf.astype({'purchased_product': 'int64','predicted_product': 'int64','cosine_sims': 'float64','user_id':'int64'})
     #=========================================================================
     # Creating a dict of product_id and product_name for faster Product_name lookup
     prodDict = {}
@@ -136,47 +148,101 @@ def generatePreds(simMatfilePath,inputBasket, prodFilePath,allTrainOrdersFilePat
             record = line.strip().split(',')
             prodDict.update({int(record[0]):str(record[1])})
 
-    df['prior_product_name'] = df['purchased_product'].map(prodDict)
-    df['predicted_product_name'] = df['predicted_product'].map(prodDict)
-
-    print("\n\nPredictions Generated....")
+    predictedBasketDf['prior_product_name'] = predictedBasketDf['purchased_product'].map(prodDict)
+    predictedBasketDf['predicted_product_name'] = predictedBasketDf['predicted_product'].map(prodDict)
     
-    return df,inputBasket,actualTrainBasket
+    #=========================================================================
+    #Saving our predictions
+    filename = "../../../data/processed/cosinePredictions.csv"
+    print("\n\nSaving predictions at: ",filename)
+    predictedBasketDf.to_csv(filename,index=False)
+    print("\n\nPredictions Saved....")
+    
+    return predictedBasketDf,actualTrainBasket
 
-def calculate_MAP(df,inputBasket,actualTrainBasket):
+def randomModel(inputBasket,prodFilePath,allTrainOrdersFilePath):
+    print("\n*** Generating Predictions - random model ***\n\n")
+    #This model basically randomly suggests a product from past purchase history of a user
+    inputBasket = inputBasket.astype({'product_id': 'int64','user_id': 'int64'})
+    basketList = inputBasket.values
+    inputBasketUserList = inputBasket['user_id'].unique()
+    
+    #=========================================================================
+    #Removing Header rows, since i concatnated csv files from Spark export
+    actualTrainBasket = pd.read_csv(allTrainOrdersFilePath,usecols=['user_id','product_id'])
+    headerRows = actualTrainBasket[actualTrainBasket['product_id'] == "product_id"]
+    actualTrainBasket = actualTrainBasket.drop(headerRows.index, axis=0)
+    actualTrainBasket = actualTrainBasket.astype({'product_id': 'int64','user_id': 'int64'})
+    
+    #=========================================================================
+    #Selecting last (train) orders of users who are in our InputBasket
+    print("Train basket size before filtering input users", actualTrainBasket.shape)
+    actualTrainBasket = actualTrainBasket[actualTrainBasket['user_id'].isin(inputBasketUserList) ]
+    print("Train basket size after filtering input users", actualTrainBasket.shape,"\n")
+    
+    predictedProducts = []
+    for userid in inputBasketUserList:
+        record = inputBasket[inputBasket['user_id'] == int(userid)].sample(3).values
+        predictedProducts.append(record[0])
+        predictedProducts.append(record[1])
+        predictedProducts.append(record[2])
+        
+
+    predictedBasketDf = pd.DataFrame.from_records(predictedProducts, columns=["user_id","predicted_product"])
+
+    return predictedBasketDf,actualTrainBasket
+
+def baselineModel(simMatfilePath,inputBasket,prodFilePath,actualTrainBasket):
+    #In this we recommend products from top 10 most purchased products by the user
+    
+    print("\n*** Generating Predictions - random model ***\n\n")
+    #This model basically randomly suggests a product from past purchase history of a user
+    inputBasket = inputBasket.astype({'product_id': 'int64','user_id': 'int64'})
+    basketList = inputBasket.values
+    inputBasketUserList = inputBasket['user_id'].unique()
+    
+    #=========================================================================
+    #Selecting last (train) orders of users who are in our InputBasket
+    print("Train basket size before filtering input users", actualTrainBasket.shape)
+    actualTrainBasket = actualTrainBasket[actualTrainBasket['user_id'].isin(inputBasketUserList) ]
+    print("Train basket size after filtering input users", actualTrainBasket.shape,"\n")
+    
+    predictedProducts = []
+
+    return
+
+
+def calculate_MAP(predictedBasketDf,inputBasket,actualTrainBasket,filePath,k):
     #=========================================================================
     # Calculating mean average precision for each user
     print("\n*** Calculating MAP For each user ***\n")
+    
     userList = inputBasket['user_id'].unique()
-    #print ("\nuserList: ",userList)
+    
     map = []
-
+    
     for userid in userList:
         record =[]
-        predicted = df[df['user_id'] == int(userid)]
+        predicted = predictedBasketDf[predictedBasketDf['user_id'] == int(userid)]
         actual = actualTrainBasket[actualTrainBasket['user_id'] == int(userid)]
         actualBoughtList = actual['product_id'].values
         predictedBoughtList = predicted['predicted_product'].values
         record.append(userid)
-        record.append(mean_avg_precision(actualBoughtList,predictedBoughtList))
+        record.append(mean_avg_precision(actualBoughtList,predictedBoughtList,k))
         map.append(record)
         print("userid",userid,sep=":", end=" | ")
 
-    #=========================================================================
-    #Saving our predictions
-    filename = "../../../data/processed/samplePredictions.csv"
-    print("\n\nSaving predictions at: ",filename)
-    df.to_csv(filename,index=False)
+    
 
     mapdf = pd.DataFrame.from_records(map,columns=['userid','MAP'])
     print(mapdf.head(10))
-    filename = "../../../data/processed/MAPScores.csv"
-    print("Saving MAP scores at: ",filename)
-    mapdf.to_csv(filename,index=False)
+    filename = "../../../data/processed/"
+    print("Saving MAP scores at: ",filename+filePath)
+    mapdf.to_csv(filename+filePath,index=False)
     print("\n\nPredictions saved...")
        
         
-def mean_avg_precision(actual, predicted, k=3):
+def mean_avg_precision(actual, predicted, k):
     if len(predicted) > k:
         predicted = predicted[:k]
     score = 0.0
@@ -196,7 +262,23 @@ def mean_avg_precision(actual, predicted, k=3):
     
 if __name__ == "__main__":
     start_time = time.time()
-    main()
+    parser = argparse.ArgumentParser(description="Generates related Items from the Instacart Dataset "
+                                     "dataset: [Link]",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('--mapsavepath', type=str, default='map-cosine.csv',
+                        dest='mapsavepath', help='output file name for MAP scores')
+    parser.add_argument('--model', type=str, default='cosine',
+                        dest='model', help='model to calculate (als/cosine/random/baseline)')
+    parser.add_argument('--noofusers', type=str, default=5,
+                        dest='noofusers', help='calculate for no of users (als/cosine/null,topitems)')
+    parser.add_argument('--k', type=str, default='3', dest='k',
+                        help='How many items to predict per user?')
+    parser.add_argument('--min_rating', type=float, default=4.0, dest='min_rating',
+                        help='Minimum rating to assume that a rating is positive')
+    args = parser.parse_args()
+    logging.basicConfig(level=logging.DEBUG)
     d = timedelta(seconds=(time.time()-start_time))
+    main(args.model,args.mapsavepath,args.noofusers,args.k)
     print("\n--- total run time (): " , d,"\n")
 
