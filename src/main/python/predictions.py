@@ -163,9 +163,7 @@ def randomModel(inputBasket,prodFilePath,allTrainOrdersFilePath):
     
     #=========================================================================
     #Removing Header rows, since i concatnated csv files from Spark export
-    actualTrainBasket = pd.read_csv(allTrainOrdersFilePath,usecols=['user_id','product_id'])
-    headerRows = actualTrainBasket[actualTrainBasket['product_id'] == "product_id"]
-    actualTrainBasket = actualTrainBasket.drop(headerRows.index, axis=0)
+    actualTrainBasket = removeHeaderRows(allTrainOrdersFilePath)
     actualTrainBasket = actualTrainBasket.astype({'product_id': 'int64','user_id': 'int64'})
     
     #=========================================================================
@@ -176,7 +174,7 @@ def randomModel(inputBasket,prodFilePath,allTrainOrdersFilePath):
     
     predictedProducts = []
     for userid in inputBasketUserList:
-        record = inputBasket[inputBasket['user_id'] == int(userid)].sample(3).values
+        record = inputBasket[inputBasket['user_id'] == int(userid)].sample(3,replace=True).values
         predictedProducts.append(record[0])
         predictedProducts.append(record[1])
         predictedProducts.append(record[2])
@@ -187,10 +185,10 @@ def randomModel(inputBasket,prodFilePath,allTrainOrdersFilePath):
     return predictedBasketDf,actualTrainBasket
 
 def baselineModel(inputBasket,prodFilePath,actualTrainBasket,lastPriorOrderFilePath):
-    #In this we recommend products from top 10 most purchased products
 
+    #This model randomly suggests a product from top 10 most purchased products
     print("\n*** Generating Predictions - baseline model ***\n\n")
-    #This model basically randomly suggests a product from past purchase history of a user
+    
     inputBasket = inputBasket.astype({'product_id': 'int64','user_id': 'int64'})
     basketList = inputBasket.values
     inputBasketUserList = inputBasket['user_id'].unique()
@@ -216,7 +214,7 @@ def baselineModel(inputBasket,prodFilePath,actualTrainBasket,lastPriorOrderFileP
         predictedProducts.append(record[2])
    
     predictedBasketDf = pd.DataFrame.from_records(predictedProducts, columns=["predicted_product","purchasecount","user_id"])
-    #print(predictedBasketDf.head(10))
+    
     return predictedBasketDf,actualTrainBasket    
 
 
@@ -239,16 +237,19 @@ def calculate_MAP(predictedBasketDf,inputBasket,actualTrainBasket,filePath,k):
         record.append(userid)
         record.append(mean_avg_precision(actualBoughtList,predictedBoughtList,k))
         map.append(record)
-        print("userid",userid,sep=":", end=" | ")
+        print("*",end="*")
+        #print("userid",userid,sep=":", end=" | ")
 
     
 
     mapdf = pd.DataFrame.from_records(map,columns=['userid','MAP'])
+    meanMap = mapdf['MAP'].mean()
     print("\n",mapdf.head(10))
+    print("\nMean MAP : ",meanMap)
     filename = "../../../data/processed/"
-    print("Saving MAP scores at: ",filename+filePath)
+    print("\nSaving MAP scores at: ",filename+filePath)
     mapdf.to_csv(filename+filePath,index=False)
-    print("\n\nPredictions saved...")
+    print("\nPredictions saved...")
        
         
 def mean_avg_precision(actual, predicted, k):

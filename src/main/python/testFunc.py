@@ -1,13 +1,29 @@
 import pandas as pd
 import time
-import json
 from datetime import timedelta
+import argparse
+import glob, os
 
 
-def main(): 
+def main(mapfolderpath): 
+    #This function reads all MAP scores via different models and finds a global mean
+    print("\nGenerating global MAP scores for all models\n")
+    all_files = glob.glob(os.path.join(mapfolderpath, "map-*.csv"))
+    globalMAP = []
+    for f in all_files:
+        df = pd.read_csv(f)
+        meanMAP = df['MAP'].mean()
+        modelname = f[f.find(mapfolderpath)+len(mapfolderpath):f.rfind(".csv")]
+        record= [modelname,meanMAP]
+        globalMAP.append(record)
+        print (modelname,meanMAP,sep=" : ")
+        #print(f)
+    #print("\n",globalMAP)
+
+   
+def txttocsv():
     mapdict = []
-    mapscorepath = "../../../data/processed/MAPScores.txt"
-    
+    mapscorepath = "../../../data/processed/MAPScores.txt"    
 
     file = open(mapscorepath,'r')
     MAPscores = file.read()
@@ -21,34 +37,19 @@ def main():
         mapdict.append(record)
     
     mapdf = pd.DataFrame.from_records(mapdict,columns=["userid","MAP"])
-    #mapdf = pd.DataFrame.from_dict(mapdict, orient="index",columns=["userid","MAP"]) 
     print(mapdf.head(15))
     filename = "../../../data/processed/MAPScores.csv"
     mapdf.to_csv(filename)
 
-        
-    #MAPscores = file.read()
-    #MAPscores = MAPscores.replace('{','')
-    #MAPscores = MAPscores.replace('}','')
-    #MAPscores = MAPscores.replace(',',',\n')
-    #print(MAPscores)
-    #userid = MAPscores.split(',')
-    #print(data)
-    #data = json.loads(file.read())
-    #mapdf = pd.DataFrame.from_dict(MAPscores, orient="index",columns=["userid","MAPScores"])
-    #mapdf = pd.read_json(MAPscores,orient="split")
-    #print(mapdf) 
-    
-    #print(mapdf) 
-    
-    #mapdf = pd.read_json(mapscores,orient="records")
-    #with open(mapscores) as file:
-    #    mapdf = pd.DataFrame.from_dict(file, orient="index")
-    #print(mapdf.head(15))
-
 if __name__ == "__main__":
     start_time = time.time()
-    main()
-    d = timedelta(seconds=(time.time()-start_time))
-    print("--- total run time (): " , d)
+    parser = argparse.ArgumentParser(description="Generates Global MAP for all models",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('--mapfolderpath', type=str, default='../../../data/processed/',
+                        dest='mapfolderpath', help='folder path for MAP scores, file name format map-[modelname].csv')
+    args = parser.parse_args()   
+    main(args.mapfolderpath)
+    run_time = timedelta(seconds=(time.time()-start_time))
+    print("\n--- total run time (): " , run_time)
 
