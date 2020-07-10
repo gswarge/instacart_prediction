@@ -6,7 +6,7 @@ import glob, os
 
 
 def main(mapfolderpath): 
-    #This function reads all MAP scores via different models and finds a global mean
+    #This function reads all MAP scores via different models and finds a global mean of that model
     print("\nGenerating global MAP scores for all models\n")
     all_files = glob.glob(os.path.join(mapfolderpath, "map-*.csv"))
     globalMAP = []

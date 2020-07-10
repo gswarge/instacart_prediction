@@ -55,7 +55,7 @@ def alsModel(ratingsPath):
     ratingsMatrix['user_id'] = ratingsMatrix['user_id'].astype("category")
     ratingsMatrix['product_id'] = ratingsMatrix['product_id'].astype("category")
     
-    # create a sparse matrix of all the artist/user/play triples
+    # create a sparse matrix of all the user/product/purchases triples
     purchases = coo_matrix((ratingsMatrix['purchases'].astype(float), 
                    (ratingsMatrix['product_id'].cat.codes, 
                     ratingsMatrix['user_id'].cat.codes)))
