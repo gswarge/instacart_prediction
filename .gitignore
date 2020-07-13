@@ -23,4 +23,5 @@ __pycache__/data.cpython-36.pyc
 eda-backup.py
 *.zip
 .vscode
-src/main/python/testFunc.py
+src/main/python/unused-code/
+src/main/scala/unused-code
