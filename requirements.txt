@@ -53,7 +53,7 @@ msgpack==1.0.0
 multipledispatch==0.6.0
 networkx==2.4
 numba==0.48.0
-numpy==1.18.2
+numpy==1.22.0
 packaging==20.3
 pandas==1.0.3
 param==1.9.3
