@@ -1,4 +1,3 @@
-_(This Project is still work in progress, please forgive the messy codebase)_
 ## Implicit Recommender System
 In this project I'm trying to build a recommender system based on the dataset published by [Instacart](https://www.instacart.com/datasets/grocery-shopping-2017)
 Dataset contains over **3 Million+** transaction records of over **200K+ users**, with around **50k Products**.
@@ -55,4 +54,3 @@ If you  need to use and run the code: You need to download data published by [In
 #### Python Files:
 - src/main/python/predictions.py : Does the heavy work of generating predictions for all models except ALS.
 - src/main/python/als.py : Implementation of Alternate Least Squares Matrix Factorisation using implicit package.
-
